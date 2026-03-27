@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
 
 class BookingScreen extends StatefulWidget {
   const BookingScreen({super.key});
@@ -28,6 +29,8 @@ class _BookingScreenState extends State<BookingScreen> {
     super.initState();
     pickup.addListener(validate);
     destination.addListener(validate);
+
+    getCurrentLocation();
   }
 
   void validate() {
@@ -44,6 +47,46 @@ class _BookingScreenState extends State<BookingScreen> {
     print(e);
     return null;
   }
+}
+
+Future<void> getCurrentLocation() async {
+  // xin quyền
+  LocationPermission permission = await Geolocator.requestPermission();
+
+  if (permission == LocationPermission.denied ||
+      permission == LocationPermission.deniedForever) {
+    print("Không có quyền GPS");
+    return;
+  }
+
+  // lấy vị trí
+  Position position = await Geolocator.getCurrentPosition(
+      locationSettings: LocationSettings(
+    accuracy: LocationAccuracy.high,
+  ),
+);
+
+  LatLng currentLatLng =
+      LatLng(position.latitude, position.longitude);
+
+  setState(() {
+    markers.clear();
+    markers.add(
+      Marker(
+        markerId: MarkerId("current"),
+        position: currentLatLng,
+        infoWindow: InfoWindow(title: "Vị trí của bạn"),
+      ),
+    );
+
+    pickup.text =
+        "${position.latitude}, ${position.longitude}";
+  });
+
+  // di chuyển map
+  mapController?.animateCamera(
+    CameraUpdate.newLatLngZoom(currentLatLng, 16),
+  );
 }
 
   @override
@@ -87,6 +130,17 @@ class _BookingScreenState extends State<BookingScreen> {
         padding: EdgeInsets.all(16),
         child: Column(
           children: [
+
+            ElevatedButton.icon(
+              onPressed: getCurrentLocation,
+              icon: Icon(Icons.my_location),
+              label: Text("Lấy vị trí hiện tại"),
+              style: ElevatedButton.styleFrom(
+                minimumSize: Size(double.infinity, 50),
+              ),
+            ),
+            SizedBox(height: 15), 
+            
             _buildInput("Điểm đón", pickup),
             SizedBox(height: 15),
             _buildInput("Điểm đến", destination),
@@ -96,7 +150,7 @@ class _BookingScreenState extends State<BookingScreen> {
               onPressed: isValid
                   ? () {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text("Đặt xe thành công 🚗")),
+                        SnackBar(content: Text("Xác nhận đặt xe thành công 🚗")),
                       );
                     }
                   : null,
