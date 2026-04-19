@@ -2,12 +2,17 @@ import 'package:flutter/material.dart';
 import '../services/location_service.dart';
 import 'booking_screen.dart';
 import 'history_screen.dart';
+import 'ride_types_screen.dart';
+import 'payment_screen.dart';
+import 'rating_screen.dart';
+import 'notifications_screen.dart';
+import 'login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  _HomeScreenState createState() => _HomeScreenState();
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
@@ -17,63 +22,202 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Ride App"),
+        title: const Text("Ride App"),
         centerTitle: true,
+        backgroundColor: Colors.deepPurple,
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const NotificationsScreen()),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (r) => false,
+              );
+            },
+          ),
+        ],
       ),
-      body: Padding(
-        padding: EdgeInsets.all(16),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Hello banner
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [
+                  Colors.deepPurple,
+                  Colors.deepPurple.shade300,
+                ]),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Row(
+                children: const [
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundColor: Colors.white,
+                    child: Icon(Icons.person,
+                        color: Colors.deepPurple, size: 30),
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("Xin chào,",
+                            style:
+                                TextStyle(color: Colors.white70, fontSize: 13)),
+                        Text("Bạn muốn đi đâu hôm nay?",
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
             // Card chọn thành phố
             Card(
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16)),
-              elevation: 4,
+              elevation: 2,
               child: Padding(
-                padding: EdgeInsets.all(16),
+                padding: const EdgeInsets.all(12),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text("Chọn khu vực:",
-                        style: TextStyle(fontSize: 16)),
+                    const Row(
+                      children: [
+                        Icon(Icons.location_city, color: Colors.deepPurple),
+                        SizedBox(width: 8),
+                        Text("Khu vực:", style: TextStyle(fontSize: 15)),
+                      ],
+                    ),
                     DropdownButton<String>(
                       value: city,
-                      items: ["HCM", "HN"].map((c) {
-                        return DropdownMenuItem(
-                            value: c, child: Text(c));
-                      }).toList(),
+                      underline: const SizedBox(),
+                      items: const [
+                        DropdownMenuItem(value: "HCM", child: Text("HCM")),
+                        DropdownMenuItem(value: "HN", child: Text("Hà Nội")),
+                      ],
                       onChanged: (value) {
                         setState(() {
                           city = value!;
                           LocationService.setCity(value);
                         });
                       },
-                    )
+                    ),
                   ],
                 ),
               ),
             ),
+            const SizedBox(height: 20),
 
-            SizedBox(height: 30),
+            const Text("Dịch vụ",
+                style:
+                    TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 10),
 
-            // Nút đặt xe
-            _buildButton(
-              context,
-              "Đặt xe",
-              Icons.directions_car,
-              Colors.blue,
-              BookingScreen(),
-            ),
-
-            SizedBox(height: 20),
-
-            // Nút lịch sử
-            _buildButton(
-              context,
-              "Lịch sử",
-              Icons.history,
-              Colors.blue,
-              HistoryScreen(),
+            GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 1.1,
+              children: [
+                _menu(
+                  icon: Icons.directions_car,
+                  label: "Đặt xe",
+                  color: Colors.blue,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const BookingScreen()),
+                    );
+                  },
+                ),
+                _menu(
+                  icon: Icons.local_taxi,
+                  label: "Loại xe & giá",
+                  color: Colors.teal,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const RideTypesScreen()),
+                    );
+                  },
+                ),
+                _menu(
+                  icon: Icons.payment,
+                  label: "Thanh toán",
+                  color: Colors.green,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const PaymentScreen(
+                            tongTien: 65000, tenLoaiXe: "Xe máy"),
+                      ),
+                    );
+                  },
+                ),
+                _menu(
+                  icon: Icons.star_rate,
+                  label: "Đánh giá",
+                  color: Colors.amber,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const RatingScreen()),
+                    );
+                  },
+                ),
+                _menu(
+                  icon: Icons.notifications,
+                  label: "Thông báo",
+                  color: Colors.orange,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const NotificationsScreen()),
+                    );
+                  },
+                ),
+                _menu(
+                  icon: Icons.history,
+                  label: "Lịch sử",
+                  color: Colors.deepPurple,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => HistoryScreen()),
+                    );
+                  },
+                ),
+              ],
             ),
           ],
         ),
@@ -81,26 +225,42 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildButton(BuildContext context, String text, IconData icon,
-      Color color, Widget screen) {
-    return ElevatedButton(
-      style: ElevatedButton.styleFrom(
-        minimumSize: Size(double.infinity, 60),
-        backgroundColor: color,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16)),
-      ),
-      onPressed: () {
-        Navigator.push(
-            context, MaterialPageRoute(builder: (_) => screen));
-      },
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon),
-          SizedBox(width: 10),
-          Text(text, style: TextStyle(fontSize: 18)),
-        ],
+  Widget _menu(
+      {required IconData icon,
+      required String label,
+      required Color color,
+      required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 6,
+                offset: const Offset(0, 2)),
+          ],
+        ),
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircleAvatar(
+              radius: 26,
+              backgroundColor: color.withValues(alpha: 0.15),
+              child: Icon(icon, color: color, size: 26),
+            ),
+            const SizedBox(height: 10),
+            Text(label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w600)),
+          ],
+        ),
       ),
     );
   }
