@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'rating_screen.dart';
+import 'home_screen.dart';
 
 class PaymentMethod {
   final String id;
@@ -55,6 +55,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18)),
@@ -62,22 +63,41 @@ class _PaymentScreenState extends State<PaymentScreen> {
           children: const [
             Icon(Icons.check_circle, color: Colors.green, size: 28),
             SizedBox(width: 8),
-            Text("Thành công"),
+            Text("Thanh toán thành công"),
           ],
         ),
-        content: Text(
-            "Bạn đã thanh toán ${_formatVND(widget.tongTien)} bằng ${methods[selected].ten}.\nMã giao dịch: #TX${DateTime.now().millisecondsSinceEpoch}"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+                "Bạn đã thanh toán ${_formatVND(widget.tongTien)} bằng ${methods[selected].ten}."),
+            const SizedBox(height: 6),
+            Text(
+              "Mã giao dịch: #TX${DateTime.now().millisecondsSinceEpoch}",
+              style: const TextStyle(
+                  fontSize: 12, color: Colors.black54),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              "Bạn có thể đánh giá tài xế sau khi chuyến đi kết thúc.",
+              style: TextStyle(
+                  fontSize: 13, fontStyle: FontStyle.italic),
+            ),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(context); // đóng dialog
-              Navigator.pushReplacement(
+              Navigator.pop(context);
+              Navigator.pushAndRemoveUntil(
                 context,
-                MaterialPageRoute(builder: (_) => const RatingScreen()),
+                MaterialPageRoute(builder: (_) => const HomeScreen()),
+                (r) => false,
               );
             },
-            child: const Text("Đánh giá chuyến"),
-          ),
+            child: const Text("Về trang chủ"),
+          )
         ],
       ),
     );

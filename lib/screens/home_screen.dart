@@ -156,32 +156,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   },
                 ),
                 _menu(
-                  icon: Icons.local_taxi,
-                  label: "Loại xe & giá",
-                  color: Colors.teal,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const RideTypesScreen()),
-                    );
-                  },
-                ),
-                _menu(
-                  icon: Icons.payment,
-                  label: "Thanh toán",
-                  color: Colors.green,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const PaymentScreen(
-                            tongTien: 65000, tenLoaiXe: "Xe máy"),
-                      ),
-                    );
-                  },
-                ),
-                _menu(
                   icon: Icons.star_rate,
                   label: "Đánh giá",
                   color: Colors.amber,

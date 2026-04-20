@@ -1,7 +1,9 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
+import 'ride_types_screen.dart';
 
 class BookingScreen extends StatefulWidget {
   const BookingScreen({super.key});
@@ -38,6 +40,50 @@ class _BookingScreenState extends State<BookingScreen> {
       isValid = pickup.text.trim().isNotEmpty &&
           destination.text.trim().isNotEmpty;
     });
+  }
+
+  // Tính khoảng cách (km) bằng công thức Haversine
+  double _calculateDistanceKm(LatLng a, LatLng b) {
+    const R = 6371.0; // bán kính Trái Đất (km)
+    final dLat = (b.latitude - a.latitude) * math.pi / 180.0;
+    final dLon = (b.longitude - a.longitude) * math.pi / 180.0;
+    final lat1 = a.latitude * math.pi / 180.0;
+    final lat2 = b.latitude * math.pi / 180.0;
+    final h = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1) * math.cos(lat2) *
+            math.sin(dLon / 2) * math.sin(dLon / 2);
+    final c = 2 * math.atan2(math.sqrt(h), math.sqrt(1 - h));
+    return R * c;
+  }
+
+  Future<void> _onConfirmBooking() async {
+    // Nếu user chỉ gõ địa chỉ mà chưa submit để geocode → thử geocode trước
+    pickupLatLng ??= await getLatLngFromAddress(pickup.text);
+    destinationLatLng ??= await getLatLngFromAddress(destination.text);
+
+    double khoangCach = 5.0; // mặc định nếu không tính được
+    if (pickupLatLng != null && destinationLatLng != null) {
+      final d = _calculateDistanceKm(pickupLatLng!, destinationLatLng!);
+      // Làm tròn 1 chữ số thập phân, tối thiểu 1km
+      khoangCach = double.parse(d.toStringAsFixed(1));
+      if (khoangCach < 1.0) khoangCach = 1.0;
+    }
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("Xác nhận đặt xe — khoảng cách ~ $khoangCach km 🚗"),
+        duration: const Duration(seconds: 1),
+      ),
+    );
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => RideTypesScreen(khoangCachKm: khoangCach),
+      ),
+    );
   }
   Future<LatLng?> getLatLngFromAddress(String address) async {
   try {
@@ -147,13 +193,7 @@ Future<void> getCurrentLocation() async {
             SizedBox(height: 30),
 
             ElevatedButton(
-              onPressed: isValid
-                  ? () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text("Xác nhận đặt xe thành công 🚗")),
-                      );
-                    }
-                  : null,
+              onPressed: isValid ? _onConfirmBooking : null,
               child: Text("Xác nhận đặt xe"),
             )
           ],
