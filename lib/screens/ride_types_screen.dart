@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'payment_screen.dart';
 
 class RideType {
@@ -24,7 +25,19 @@ class RideType {
 class RideTypesScreen extends StatefulWidget {
   // Khoảng cách giả định (km) – có thể truyền từ booking
   final double khoangCachKm;
-  const RideTypesScreen({super.key, this.khoangCachKm = 5.0});
+  final String? diaChiDon;
+  final String? diaChiDen;
+  final LatLng? diemDon;
+  final LatLng? diemDen;
+
+  const RideTypesScreen({
+    super.key,
+    this.khoangCachKm = 5.0,
+    this.diaChiDon,
+    this.diaChiDen,
+    this.diemDon,
+    this.diemDen,
+  });
 
   @override
   State<RideTypesScreen> createState() => _RideTypesScreenState();
@@ -274,6 +287,11 @@ class _RideTypesScreenState extends State<RideTypesScreen> {
                         builder: (_) => PaymentScreen(
                           tongTien: _tongTien(selected),
                           tenLoaiXe: selected.tenLoai,
+                          khoangCachKm: widget.khoangCachKm,
+                          diaChiDon: widget.diaChiDon,
+                          diaChiDen: widget.diaChiDen,
+                          diemDon: widget.diemDon,
+                          diemDen: widget.diemDen,
                         ),
                       ),
                     );

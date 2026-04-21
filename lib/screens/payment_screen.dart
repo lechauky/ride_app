@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'home_screen.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../services/active_trip_store.dart';
+import 'passenger_trip_screen.dart';
 
 class PaymentMethod {
   final String id;
@@ -13,11 +15,21 @@ class PaymentMethod {
 class PaymentScreen extends StatefulWidget {
   final int tongTien;
   final String tenLoaiXe;
+  final double khoangCachKm;
+  final String? diaChiDon;
+  final String? diaChiDen;
+  final LatLng? diemDon;
+  final LatLng? diemDen;
 
   const PaymentScreen({
     super.key,
     required this.tongTien,
     required this.tenLoaiXe,
+    this.khoangCachKm = 5.0,
+    this.diaChiDon,
+    this.diaChiDen,
+    this.diemDon,
+    this.diemDen,
   });
 
   @override
@@ -45,6 +57,34 @@ class _PaymentScreenState extends State<PaymentScreen> {
       buf.write(s[i]);
     }
     return "${buf.toString()}₫";
+  }
+
+  /// Khởi tạo trip giả lập sau khi thanh toán thành công
+  PassengerTripInfo _createTrip() {
+    final maChuyen =
+        "${DateTime.now().millisecondsSinceEpoch % 1000000}";
+    return PassengerTripInfo(
+      maChuyenDi: maChuyen,
+      tenTaiXe: "Nguyễn Văn A",
+      sdtTaiXe: "0901 234 567",
+      diemDanhGiaTaiXe: 4.9,
+      bienSo: widget.tenLoaiXe.toLowerCase().contains("máy")
+          ? "59X1-234.56"
+          : "51A-678.90",
+      hangXe: widget.tenLoaiXe.toLowerCase().contains("máy")
+          ? "Honda Wave"
+          : "Toyota Vios",
+      mauXe: "Đen",
+      loaiXe: widget.tenLoaiXe,
+      diaChiDon: widget.diaChiDon ?? "Vị trí đón hiện tại",
+      diaChiDen: widget.diaChiDen ?? "Điểm đến đã chọn",
+      diemDon: widget.diemDon,
+      diemDen: widget.diemDen,
+      khoangCachKm: widget.khoangCachKm,
+      tongTien: widget.tongTien,
+      phuongThucThanhToan: methods[selected].ten,
+      etaPhut: 5,
+    );
   }
 
   Future<void> _confirmPayment() async {
@@ -80,24 +120,34 @@ class _PaymentScreenState extends State<PaymentScreen> {
             ),
             const SizedBox(height: 12),
             const Text(
-              "Bạn có thể đánh giá tài xế sau khi chuyến đi kết thúc.",
+              "Hệ thống đang tìm tài xế cho bạn…",
               style: TextStyle(
                   fontSize: 13, fontStyle: FontStyle.italic),
             ),
           ],
         ),
         actions: [
-          TextButton(
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.deepPurple,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(context); // đóng dialog
+
+              // Lưu chuyến vào store và mở màn thông tin tài xế
+              final trip = _createTrip();
+              ActiveTripStore.startTrip(trip);
+
               Navigator.pushAndRemoveUntil(
                 context,
-                MaterialPageRoute(builder: (_) => const HomeScreen()),
+                MaterialPageRoute(
+                    builder: (_) => const PassengerTripScreen()),
                 (r) => false,
               );
             },
-            child: const Text("Về trang chủ"),
-          )
+            child: const Text("Xem tài xế"),
+          ),
         ],
       ),
     );

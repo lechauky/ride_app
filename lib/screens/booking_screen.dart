@@ -81,7 +81,13 @@ class _BookingScreenState extends State<BookingScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => RideTypesScreen(khoangCachKm: khoangCach),
+        builder: (_) => RideTypesScreen(
+          khoangCachKm: khoangCach,
+          diaChiDon: pickup.text.trim(),
+          diaChiDen: destination.text.trim(),
+          diemDon: pickupLatLng,
+          diemDen: destinationLatLng,
+        ),
       ),
     );
   }

@@ -146,7 +146,14 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
                 Navigator.pop(context);
                 Navigator.pushAndRemoveUntil(
                   context,
-                  MaterialPageRoute(builder: (_) => const RatingScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => RatingScreen(
+                      target: RatingTarget.passenger,
+                      targetName: widget.trip.tenKhach,
+                      targetSubInfo:
+                          "${widget.trip.soDienThoai} • Chuyến #${widget.trip.maChuyenDi}",
+                    ),
+                  ),
                   (r) => false,
                 );
               },

@@ -1,8 +1,27 @@
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
+import 'driver_home_screen.dart';
+
+/// Đối tượng được đánh giá
+/// - driver: người dùng đánh giá tài xế
+/// - passenger: tài xế đánh giá khách hàng
+enum RatingTarget { driver, passenger }
 
 class RatingScreen extends StatefulWidget {
-  const RatingScreen({super.key});
+  final RatingTarget target;
+
+  /// Tên đối tượng được đánh giá (tuỳ chọn — ví dụ tên khách / tài xế)
+  final String? targetName;
+
+  /// Thông tin phụ (vd: biển số xe khi đánh giá tài xế, SĐT khi đánh giá khách)
+  final String? targetSubInfo;
+
+  const RatingScreen({
+    super.key,
+    this.target = RatingTarget.driver,
+    this.targetName,
+    this.targetSubInfo,
+  });
 
   @override
   State<RatingScreen> createState() => _RatingScreenState();
@@ -11,15 +30,52 @@ class RatingScreen extends StatefulWidget {
 class _RatingScreenState extends State<RatingScreen> {
   int rating = 0;
   final feedbackCtl = TextEditingController();
-  final List<String> quickTags = [
-    "Thái độ tốt",
-    "Lái xe an toàn",
-    "Đúng giờ",
-    "Xe sạch sẽ",
-    "Thân thiện",
-    "Đi nhanh",
-  ];
   final Set<String> selectedTags = {};
+
+  bool get _isPassenger => widget.target == RatingTarget.passenger;
+
+  String get _appBarTitle =>
+      _isPassenger ? "Đánh giá khách hàng" : "Đánh giá tài xế";
+
+  String get _targetLabel => _isPassenger ? "khách hàng" : "tài xế";
+
+  String get _name =>
+      widget.targetName ?? (_isPassenger ? "Trần Thị B" : "Nguyễn Văn A");
+
+  String get _subInfo =>
+      widget.targetSubInfo ??
+      (_isPassenger
+          ? "0987 654 321 • Chuyến #12345"
+          : "Honda Wave • 59X1-234.56");
+
+  IconData get _subIcon =>
+      _isPassenger ? Icons.phone : Icons.directions_car;
+
+  IconData get _avatarIcon =>
+      _isPassenger ? Icons.person_outline : Icons.person;
+
+  /// Tag nhanh khác nhau cho 2 ngữ cảnh đánh giá
+  List<String> get _quickTags => _isPassenger
+      ? const [
+          "Lịch sự",
+          "Đúng điểm đón",
+          "Không huỷ chuyến",
+          "Hành lý gọn gàng",
+          "Thanh toán nhanh",
+          "Thân thiện",
+        ]
+      : const [
+          "Thái độ tốt",
+          "Lái xe an toàn",
+          "Đúng giờ",
+          "Xe sạch sẽ",
+          "Thân thiện",
+          "Đi nhanh",
+        ];
+
+  String get _feedbackHint => _isPassenger
+      ? "Chia sẻ cảm nhận của bạn về khách hàng..."
+      : "Chia sẻ cảm nhận của bạn về chuyến đi...";
 
   String _ratingLabel() {
     switch (rating) {
@@ -44,6 +100,17 @@ class _RatingScreenState extends State<RatingScreen> {
     super.dispose();
   }
 
+  void _goHome() {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            _isPassenger ? const DriverHomeScreen() : const HomeScreen(),
+      ),
+      (r) => false,
+    );
+  }
+
   void _submitRating() {
     if (rating == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -53,6 +120,7 @@ class _RatingScreenState extends State<RatingScreen> {
     }
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18)),
@@ -64,16 +132,16 @@ class _RatingScreenState extends State<RatingScreen> {
           ],
         ),
         content: Text(
-            "Bạn đã đánh giá $rating sao cho tài xế.\nPhản hồi của bạn giúp chúng tôi cải thiện dịch vụ."),
+            "Bạn đã đánh giá $rating sao cho $_targetLabel.\nPhản hồi của bạn giúp chúng tôi cải thiện dịch vụ."),
         actions: [
-          TextButton(
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.deepPurple,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () {
               Navigator.pop(context);
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => const HomeScreen()),
-                (r) => false,
-              );
+              _goHome();
             },
             child: const Text("Về trang chủ"),
           )
@@ -86,7 +154,7 @@ class _RatingScreenState extends State<RatingScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Đánh giá tài xế"),
+        title: Text(_appBarTitle),
         backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
       ),
@@ -95,7 +163,7 @@ class _RatingScreenState extends State<RatingScreen> {
         child: Column(
           children: [
             const SizedBox(height: 10),
-            // Avatar & thông tin tài xế giả định
+            // Avatar & thông tin đối tượng được đánh giá
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -104,27 +172,26 @@ class _RatingScreenState extends State<RatingScreen> {
               ),
               child: Column(
                 children: [
-                  const CircleAvatar(
+                  CircleAvatar(
                     radius: 45,
                     backgroundColor: Colors.deepPurple,
-                    child: Icon(Icons.person,
+                    child: Icon(_avatarIcon,
                         size: 50, color: Colors.white),
                   ),
                   const SizedBox(height: 10),
-                  const Text(
-                    "Nguyễn Văn A",
-                    style: TextStyle(
+                  Text(
+                    _name,
+                    style: const TextStyle(
                         fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 2),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.directions_car,
-                          size: 16, color: Colors.black54),
-                      SizedBox(width: 4),
-                      Text("Honda Wave • 59X1-234.56",
-                          style: TextStyle(color: Colors.black54)),
+                    children: [
+                      Icon(_subIcon, size: 16, color: Colors.black54),
+                      const SizedBox(width: 4),
+                      Text(_subInfo,
+                          style: const TextStyle(color: Colors.black54)),
                     ],
                   ),
                 ],
@@ -168,7 +235,7 @@ class _RatingScreenState extends State<RatingScreen> {
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: quickTags.map((tag) {
+              children: _quickTags.map((tag) {
                 final sel = selectedTags.contains(tag);
                 return FilterChip(
                   label: Text(tag),
@@ -194,7 +261,7 @@ class _RatingScreenState extends State<RatingScreen> {
               maxLength: 250,
               decoration: InputDecoration(
                 labelText: "Ý kiến phản hồi (tuỳ chọn)",
-                hintText: "Chia sẻ cảm nhận của bạn về chuyến đi...",
+                hintText: _feedbackHint,
                 alignLabelWithHint: true,
                 border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14)),
@@ -216,13 +283,7 @@ class _RatingScreenState extends State<RatingScreen> {
             ),
             const SizedBox(height: 8),
             TextButton(
-              onPressed: () {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (_) => const HomeScreen()),
-                  (r) => false,
-                );
-              },
+              onPressed: _goHome,
               child: const Text("Bỏ qua"),
             ),
           ],

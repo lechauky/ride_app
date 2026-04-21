@@ -292,7 +292,10 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (_) => const RatingScreen()),
+                        builder: (_) => const RatingScreen(
+                          target: RatingTarget.passenger,
+                        ),
+                      ),
                     );
                   },
                 ),
