@@ -21,7 +21,7 @@ Nhóm 2 phải đảm nhiệm mở Server khớp với các Port mà App Front-e
 | Thành viên | Phụ trách chính | Trách nhiệm và Phạm vi công việc |
 | :--- | :--- | :--- |
 | **Khánh** | **Quản lý Tài khoản (User & Auth API)** | - Viết API chức năng Đăng ký / Đăng nhập (Mã hóa mật khẩu với Bcrypt).<br>- Tạo middleware bảo vệ luồng truy cập bằng JWT (Xác thực Token).<br>- Tương tác với bảng `users`. |
-| **Đức Huy*** | **Quản lý Tài xế (Driver API)** | - Viết API cập nhật vị trí thời gian thực (Vĩ độ, kinh độ) của Tài xế.<br>- Xây dựng logic tìm tài xế gần nhất với điểm đón (So khớp khoảng cách GPS).<br>- Tương tác với bảng `drivers`. |
+| **Đức Huy** | **Quản lý Tài xế (Driver API)** | - Viết API cập nhật vị trí thời gian thực (Vĩ độ, kinh độ) của Tài xế.<br>- Xây dựng logic tìm tài xế gần nhất với điểm đón (So khớp khoảng cách GPS).<br>- Tương tác với bảng `drivers`. |
 | **Khang** | **Quản lý Chuyến đi (Trips Core API)** | - Viết API cốt lõi: Đặt chuyến xe mới (Lưu thông tin điểm đi/điểm đến tọa độ GPS).<br>- Viết API Lấy danh sách Lịch sử các chuyến đi theo User ID.<br>- Tương tác với bảng `trips`. |
 | **Quốc Huy** | **Data Access & Routing Logic** | - Cấu hình file kết nối SQL Server Node.js (nhận 4 chuỗi kết nối từ nhóm 3).<br>- Viết logic Định tuyến Query: Phân tích Request (VD: `thanh_pho = HCM`) để trỏ connection tới đúng CSDL miền Nam. |
 | **Đạt** | **Bắt Rớt Mạng (Fail-over) & Read-Only** | - Viết mã Try-Catch bảo vệ kết nối, tự động phát hiện đứt mạng với Primary.<br>- Implement cơ chế Read-Only: Nếu nhảy sang máy chủ Replica, chèn Regex/Logic chặn đứng ngay câu lệnh `INSERT` (Đặt xe). Trả về lỗi: *"Hệ thống bảo trì, chỉ xem được lịch sử"*. |

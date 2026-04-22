@@ -1,0 +1,25 @@
+{
+  "name": "ride-app-backend",
+  "version": "1.0.0",
+  "description": "Backend API cho ứng dụng Gọi xe - Đồ án CSDL Phân Tán",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "start:nam": "cross-env SERVER_REGION=NAM PORT=5001 node server.js",
+    "start:bac": "cross-env SERVER_REGION=BAC PORT=5002 node server.js",
+    "start:backup-nam": "cross-env SERVER_REGION=NAM SERVER_MODE=REPLICA PORT=6001 node server.js",
+    "start:backup-bac": "cross-env SERVER_REGION=BAC SERVER_MODE=REPLICA PORT=6002 node server.js"
+  },
+  "keywords": [],
+  "author": "Nhom2-Backend",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "mssql": "^12.3.1"
+  }
+}
