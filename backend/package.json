@@ -1,0 +1,21 @@
+{
+  "name": "ride-app-backend",
+  "version": "1.0.0",
+  "description": "Backend API for ride app - member 1 (Auth/User)",
+  "main": "user-auth/server.js",
+  "scripts": {
+    "start": "node user-auth/server.js",
+    "dev": "nodemon user-auth/server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "mssql": "^11.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}
