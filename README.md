@@ -14,10 +14,11 @@ flutter pub get
 flutter run
 
 ## Database
+
+tạo file cấu hình .env (copy từ .env.example)
 MSSQLSERVER
 
 Tên database: RideApp
-
 
 user: sa
 
