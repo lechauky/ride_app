@@ -84,8 +84,14 @@ async function getReplicaConnection(thanhPho) {
   }
 }
 
+// Alias tạm thời để code cũ không bị lỗi (Mặc định gọi HCM)
+async function getPoolFallback() {
+  return await getPrimaryConnection('HCM');
+}
+
 module.exports = {
   sql,
   getPrimaryConnection,
-  getReplicaConnection
+  getReplicaConnection,
+  getPool: getPoolFallback
 };

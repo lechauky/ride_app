@@ -12,3 +12,15 @@ flutter pub get
 
 
 flutter run
+
+## Database
+MSSQLSERVER
+
+Tên database: RideApp
+
+
+user: sa
+
+pass: 123456
+
+//1 port mở 4 database là giả lập cho 4 server (2 server chính và 2 server phụ)

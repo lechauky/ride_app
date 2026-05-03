@@ -1,4 +1,4 @@
-const { getPool } = require('../../config/db');
+const { getPool, getPrimaryConnection } = require('../../../config/database');
 
 async function findUserByEmail(email) {
   const pool = await getPool();

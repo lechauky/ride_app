@@ -1,4 +1,4 @@
-const { getPool } = require('../../config/db');
+const { getPool, getPrimaryConnection } = require('../../../config/database');
 
 // Cập nhật vị trí tài xế
 async function updateDriverLocation({ userId, latitude, longitude, thanh_pho }) {
