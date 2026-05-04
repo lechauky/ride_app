@@ -1,0 +1,83 @@
+# ============================================================
+# DOCKER COMPOSE - 4 SQL SERVER PHÂN TÁN
+# Đồ án: Ứng dụng Gọi xe - Hệ QTCSDL Phân Tán (Nhóm 2)
+#
+# Kiến trúc Port (tránh đụng độ với 5001/5002 của API):
+#   - Port 50011: SQL Server Miền Nam (Primary)
+#   - Port 50021: SQL Server Miền Bắc (Primary)
+#   - Port 60011: SQL Server Miền Nam (Replica/Backup)
+#   - Port 60021: SQL Server Miền Bắc (Replica/Backup)
+#
+# Cách chạy: docker-compose up -d
+# Cách tắt:  docker-compose down
+# ============================================================
+
+version: '3.8'
+
+services:
+  # ========== MIỀN NAM - PRIMARY (Port 50011) ==========
+  mssql-nam-primary:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sql_nam_primary
+    hostname: sql-nam-primary
+    ports:
+      - "50011:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=123456Aa
+      - MSSQL_PID=Developer
+    volumes:
+      - nam_primary_data:/var/opt/mssql
+    restart: always
+
+  # ========== MIỀN BẮC - PRIMARY (Port 50021) ==========
+  mssql-bac-primary:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sql_bac_primary
+    hostname: sql-bac-primary
+    ports:
+      - "50021:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=123456Aa
+      - MSSQL_PID=Developer
+    volumes:
+      - bac_primary_data:/var/opt/mssql
+    restart: always
+
+  # ========== MIỀN NAM - BACKUP/REPLICA (Port 60011) ==========
+  mssql-nam-replica:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sql_nam_replica
+    hostname: sql-nam-replica
+    ports:
+      - "60011:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=123456Aa
+      - MSSQL_PID=Developer
+    volumes:
+      - nam_replica_data:/var/opt/mssql
+    restart: always
+
+  # ========== MIỀN BẮC - BACKUP/REPLICA (Port 60021) ==========
+  mssql-bac-replica:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sql_bac_replica
+    hostname: sql-bac-replica
+    ports:
+      - "60021:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=123456Aa
+      - MSSQL_PID=Developer
+    volumes:
+      - bac_replica_data:/var/opt/mssql
+    restart: always
+
+# Lưu trữ dữ liệu Database vĩnh viễn (không mất khi tắt Docker)
+volumes:
+  nam_primary_data:
+  bac_primary_data:
+  nam_replica_data:
+  bac_replica_data:

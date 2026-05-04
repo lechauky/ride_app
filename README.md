@@ -18,11 +18,6 @@ flutter run
 tạo file cấu hình .env (copy từ .env.example)
 MSSQLSERVER
 
-Tên database: RideApp
+mở 4 port bằng SSMS + Docker (đọc README_DOCKER.md )
 
-user: sa
-
-pass: 123456
-
-//1 port mở 4 database là giả lập cho 4 server (2 server chính và 2 server phụ)
 
