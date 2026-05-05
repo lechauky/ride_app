@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'ride_types_screen.dart';
@@ -19,10 +20,8 @@ class _BookingScreenState extends State<BookingScreen> {
   bool isValid = false;
 
   // bản đồ
-  GoogleMapController? mapController;
+  final MapController mapController = MapController();
   LatLng currentPosition = LatLng(10.762622, 106.660172); // TP.HCM
-  Set<Marker> markers = {};
-  Set<Polyline> polylines = {};
   LatLng? pickupLatLng;
   LatLng? destinationLatLng;
 
@@ -91,170 +90,168 @@ class _BookingScreenState extends State<BookingScreen> {
       ),
     );
   }
+  
   Future<LatLng?> getLatLngFromAddress(String address) async {
-  try {
-    List<Location> locations = await locationFromAddress(address);
-    return LatLng(locations.first.latitude, locations.first.longitude);
-  } catch (e) {
-    print(e);
-    return null;
-  }
-}
-
-Future<void> getCurrentLocation() async {
-  // xin quyền
-  LocationPermission permission = await Geolocator.requestPermission();
-
-  if (permission == LocationPermission.denied ||
-      permission == LocationPermission.deniedForever) {
-    print("Không có quyền GPS");
-    return;
+    try {
+      List<Location> locations = await locationFromAddress(address);
+      return LatLng(locations.first.latitude, locations.first.longitude);
+    } catch (e) {
+      print(e);
+      return null;
+    }
   }
 
-  // lấy vị trí
-  Position position = await Geolocator.getCurrentPosition(
-      locationSettings: LocationSettings(
-    accuracy: LocationAccuracy.high,
-  ),
-);
+  Future<void> getCurrentLocation() async {
+    // xin quyền
+    LocationPermission permission = await Geolocator.requestPermission();
 
-  LatLng currentLatLng =
-      LatLng(position.latitude, position.longitude);
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      print("Không có quyền GPS");
+      return;
+    }
 
-  setState(() {
-    markers.clear();
-    markers.add(
-      Marker(
-        markerId: MarkerId("current"),
-        position: currentLatLng,
-        infoWindow: InfoWindow(title: "Vị trí của bạn"),
-      ),
-    );
+    // lấy vị trí
+    Position position = await Geolocator.getCurrentPosition(
+        locationSettings: LocationSettings(
+      accuracy: LocationAccuracy.high,
+    ));
 
-    pickup.text =
-        "${position.latitude}, ${position.longitude}";
-  });
+    LatLng currentLatLng = LatLng(position.latitude, position.longitude);
 
-  // di chuyển map
-  mapController?.animateCamera(
-    CameraUpdate.newLatLngZoom(currentLatLng, 16),
-  );
-}
+    setState(() {
+      currentPosition = currentLatLng;
+      pickupLatLng = currentLatLng;
+      pickup.text = "${position.latitude}, ${position.longitude}";
+    });
+
+    // di chuyển map
+    mapController.move(currentLatLng, 16);
+  }
+
+  List<Marker> _buildMarkers() {
+    final markers = <Marker>[];
+    
+    if (pickupLatLng != null) {
+      markers.add(Marker(
+        point: pickupLatLng!,
+        width: 40,
+        height: 40,
+        child: const Icon(Icons.location_on, color: Colors.green, size: 40),
+      ));
+    } else {
+      markers.add(Marker(
+        point: currentPosition,
+        width: 40,
+        height: 40,
+        child: const Icon(Icons.my_location, color: Colors.blue, size: 40),
+      ));
+    }
+
+    if (destinationLatLng != null) {
+      markers.add(Marker(
+        point: destinationLatLng!,
+        width: 40,
+        height: 40,
+        child: const Icon(Icons.location_on, color: Colors.red, size: 40),
+      ));
+    }
+
+    return markers;
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text("Đặt xe")),
       body: Column(
-  children: [
-    // MAP
-    SizedBox(
-      height: 250,
-      child: GoogleMap(
-        initialCameraPosition: CameraPosition(
-          target: currentPosition,
-          zoom: 14,
-        ),
-        onMapCreated: (controller) {
-          mapController = controller;
-        },
-        onTap: (LatLng position) {
-          setState(() {
-            markers.clear();
-            markers.add(
-              Marker(
-                markerId: MarkerId("selected"),
-                position: position,
+        children: [
+          // MAP
+          SizedBox(
+            height: 250,
+            child: FlutterMap(
+              mapController: mapController,
+              options: MapOptions(
+                initialCenter: currentPosition,
+                initialZoom: 14,
+                onTap: (tapPosition, point) {
+                  setState(() {
+                    pickupLatLng = point;
+                    pickup.text = "${point.latitude}, ${point.longitude}";
+                  });
+                },
               ),
-            );
+              children: [
+                TileLayer(
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.example.ride_app',
+                ),
+                MarkerLayer(
+                  markers: _buildMarkers(),
+                ),
+              ],
+            ),
+          ),
 
-            pickup.text =
-                "${position.latitude}, ${position.longitude}";
-          });
-        },
-        markers: markers,
-        polylines: polylines, 
-      ),
-    ),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: getCurrentLocation,
+                    icon: Icon(Icons.my_location),
+                    label: Text("Lấy vị trí hiện tại"),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: Size(double.infinity, 50),
+                    ),
+                  ),
+                  SizedBox(height: 15), 
+                  
+                  _buildInput("Điểm đón", pickup),
+                  SizedBox(height: 15),
+                  _buildInput("Điểm đến", destination),
+                  SizedBox(height: 30),
 
-    Expanded(
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          children: [
-
-            ElevatedButton.icon(
-              onPressed: getCurrentLocation,
-              icon: Icon(Icons.my_location),
-              label: Text("Lấy vị trí hiện tại"),
-              style: ElevatedButton.styleFrom(
-                minimumSize: Size(double.infinity, 50),
+                  ElevatedButton(
+                    onPressed: isValid ? _onConfirmBooking : null,
+                    child: Text("Xác nhận đặt xe"),
+                  )
+                ],
               ),
             ),
-            SizedBox(height: 15), 
-            
-            _buildInput("Điểm đón", pickup),
-            SizedBox(height: 15),
-            _buildInput("Điểm đến", destination),
-            SizedBox(height: 30),
-
-            ElevatedButton(
-              onPressed: isValid ? _onConfirmBooking : null,
-              child: Text("Xác nhận đặt xe"),
-            )
-          ],
-        ),
+          )
+        ],
       ),
-    )
-  ],
-),
     );
   }
 
   Widget _buildInput(String label, TextEditingController controller) {
-  return TextField(
-    controller: controller,
-    onSubmitted: (value) async {
-      LatLng? pos = await getLatLngFromAddress(value);
+    return TextField(
+      controller: controller,
+      onSubmitted: (value) async {
+        LatLng? pos = await getLatLngFromAddress(value);
 
-      if (pos != null) {
-        setState(() {
-          if (controller == pickup) {
-            pickupLatLng = pos;
-            markers.add(
-              Marker(
-                markerId: MarkerId("pickup"),
-                position: pos,
-                icon: BitmapDescriptor.defaultMarkerWithHue(
-                    BitmapDescriptor.hueGreen),
-              ),
-            );
-          } else {
-            destinationLatLng = pos;
-            markers.add(
-              Marker(
-                markerId: MarkerId("destination"),
-                position: pos,
-                icon: BitmapDescriptor.defaultMarkerWithHue(
-                    BitmapDescriptor.hueRed),
-              ),
-            );
-          }
-        });
+        if (pos != null) {
+          setState(() {
+            if (controller == pickup) {
+              pickupLatLng = pos;
+            } else {
+              destinationLatLng = pos;
+            }
+          });
 
-        // Di chuyển camera
-        mapController?.animateCamera(
-          CameraUpdate.newLatLng(pos),
-        );
-      }
-    },
-    decoration: InputDecoration(
-      labelText: label,
-      prefixIcon: Icon(Icons.location_on),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
+          // Di chuyển camera
+          mapController.move(pos, 16);
+        }
+      },
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(Icons.location_on),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 }

@@ -1,3 +1,8 @@
+// ===========================================
+// SERVICE - Thành viên 2 (Đức Huy)
+// Nhiệm vụ: Xử lý logic nghiệp vụ Tài xế
+// Truyền thanh_pho xuống Repository để Định tuyến DB
+// ===========================================
 const repository = require('./driver-auth.repository');
 
 // Cập nhật vị trí tài xế
@@ -12,11 +17,12 @@ async function updateLocation(locationData) {
     throw new Error('Vị trí không hợp lệ');
   }
 
+  // UPDATE → Primary (truyền thanh_pho để định tuyến đúng DB)
   const driver = await repository.updateDriverLocation({
     userId,
     latitude: parseFloat(latitude),
     longitude: parseFloat(longitude),
-    thanh_pho
+    thanh_pho: thanh_pho || 'HCM'
   });
 
   if (!driver) {
@@ -37,7 +43,7 @@ async function updateLocation(locationData) {
   };
 }
 
-// Tìm tài xế gần nhất
+// Tìm tài xế gần nhất (SELECT → Replica qua repository)
 async function findNearestDrivers(searchData) {
   const {
     latitude,
@@ -92,7 +98,7 @@ async function findNearestDrivers(searchData) {
   };
 }
 
-// Lấy danh sách tài xế khả dụng
+// Lấy danh sách tài xế khả dụng (SELECT → Replica qua repository)
 async function getAvailableDriversList(thanh_pho) {
   if (!thanh_pho) {
     throw new Error('Thiếu thông tin thành phố');
@@ -123,13 +129,13 @@ async function getAvailableDriversList(thanh_pho) {
   };
 }
 
-// Cập nhật trạng thái khả dụng
-async function updateAvailability(driverId, is_available) {
+// Cập nhật trạng thái khả dụng (UPDATE → Primary qua repository)
+async function updateAvailability(driverId, is_available, thanh_pho = 'HCM') {
   if (!driverId) {
     throw new Error('Thiếu ID tài xế');
   }
 
-  const driver = await repository.updateDriverAvailability(driverId, is_available);
+  const driver = await repository.updateDriverAvailability(driverId, is_available, thanh_pho);
 
   if (!driver) {
     throw new Error('Không tìm thấy tài xế');
@@ -147,13 +153,13 @@ async function updateAvailability(driverId, is_available) {
   };
 }
 
-// Lấy thông tin chi tiết tài xế
-async function getProfile(driverId) {
+// Lấy thông tin chi tiết tài xế (SELECT → Replica qua repository)
+async function getProfile(driverId, thanh_pho = 'HCM') {
   if (!driverId) {
     throw new Error('Thiếu ID tài xế');
   }
 
-  const driver = await repository.getDriverProfile(driverId);
+  const driver = await repository.getDriverProfile(driverId, thanh_pho);
 
   if (!driver) {
     throw new Error('Không tìm thấy tài xế');

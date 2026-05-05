@@ -1,7 +1,17 @@
-const { getPool, getPrimaryConnection } = require('../../../config/database');
+// ===========================================
+// REPOSITORY - Thành viên 1 (Khánh)
+// Nhiệm vụ: Tương tác trực tiếp với bảng users
+// SỬ DỤNG ĐÚNG logic Định tuyến của Thành viên 4
+// ===========================================
+const { getPrimaryConnection, getReplicaConnection } = require('../../../config/database');
 
-async function findUserByEmail(email) {
-  const pool = await getPool();
+/**
+ * Tìm user theo email (SELECT → dùng Replica để giảm tải)
+ * @param {string} email
+ * @param {string} thanh_pho - 'HCM' hoặc 'HN'
+ */
+async function findUserByEmail(email, thanh_pho = 'HCM') {
+  const pool = await getReplicaConnection(thanh_pho);
   const result = await pool.request()
     .input('email', email)
     .query('SELECT TOP 1 * FROM users WHERE email = @email');
@@ -9,8 +19,12 @@ async function findUserByEmail(email) {
   return result.recordset[0] || null;
 }
 
+/**
+ * Tạo user mới (INSERT → dùng Primary bắt buộc)
+ * @param {object} userData - { ho_ten, email, mat_khau, so_dien_thoai, thanh_pho }
+ */
 async function createUser({ ho_ten, email, mat_khau, so_dien_thoai, thanh_pho }) {
-  const pool = await getPool();
+  const pool = await getPrimaryConnection(thanh_pho || 'HCM');
   const result = await pool.request()
     .input('ho_ten', ho_ten)
     .input('email', email)
@@ -26,8 +40,13 @@ async function createUser({ ho_ten, email, mat_khau, so_dien_thoai, thanh_pho })
   return result.recordset[0];
 }
 
-async function getUserById(id) {
-  const pool = await getPool();
+/**
+ * Lấy thông tin user theo ID (SELECT → dùng Replica)
+ * @param {number} id
+ * @param {string} thanh_pho - 'HCM' hoặc 'HN'
+ */
+async function getUserById(id, thanh_pho = 'HCM') {
+  const pool = await getReplicaConnection(thanh_pho);
   const result = await pool.request()
     .input('id', id)
     .query('SELECT id, ho_ten, email, so_dien_thoai, thanh_pho, ngay_tao FROM users WHERE id = @id');

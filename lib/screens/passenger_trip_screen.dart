@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../services/active_trip_store.dart';
 import 'home_screen.dart';
 import 'rating_screen.dart';
@@ -12,7 +13,7 @@ class PassengerTripScreen extends StatefulWidget {
 }
 
 class _PassengerTripScreenState extends State<PassengerTripScreen> {
-  GoogleMapController? mapController;
+  final MapController mapController = MapController();
 
   String _formatVND(int v) {
     final s = v.toString();
@@ -24,41 +25,36 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
     return "${buf.toString()}₫";
   }
 
-  Set<Marker> _markers(PassengerTripInfo t) {
-    final s = <Marker>{};
+  List<Marker> _markers(PassengerTripInfo t) {
+    final s = <Marker>[];
     if (t.diemDon != null) {
       s.add(Marker(
-        markerId: const MarkerId("pickup"),
-        position: t.diemDon!,
-        icon: BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueGreen),
-        infoWindow: InfoWindow(
-            title: "Điểm đón", snippet: t.diaChiDon),
+        point: t.diemDon!,
+        width: 40,
+        height: 40,
+        child: const Icon(Icons.location_on, color: Colors.green, size: 40),
       ));
     }
     if (t.diemDen != null) {
       s.add(Marker(
-        markerId: const MarkerId("destination"),
-        position: t.diemDen!,
-        icon: BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueRed),
-        infoWindow: InfoWindow(
-            title: "Điểm đến", snippet: t.diaChiDen),
+        point: t.diemDen!,
+        width: 40,
+        height: 40,
+        child: const Icon(Icons.location_on, color: Colors.red, size: 40),
       ));
     }
     return s;
   }
 
-  Set<Polyline> _polylines(PassengerTripInfo t) {
-    if (t.diemDon == null || t.diemDen == null) return {};
-    return {
+  List<Polyline> _polylines(PassengerTripInfo t) {
+    if (t.diemDon == null || t.diemDen == null) return [];
+    return [
       Polyline(
-        polylineId: const PolylineId("route"),
         color: Colors.deepPurple,
-        width: 4,
+        strokeWidth: 4,
         points: [t.diemDon!, t.diemDen!],
       ),
-    };
+    ];
   }
 
   LatLng _initialCamera(PassengerTripInfo t) {
@@ -202,16 +198,24 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
               // Bản đồ
               SizedBox(
                 height: 240,
-                child: GoogleMap(
-                  initialCameraPosition: CameraPosition(
-                    target: _initialCamera(trip),
-                    zoom: 13,
+                child: FlutterMap(
+                  mapController: mapController,
+                  options: MapOptions(
+                    initialCenter: _initialCamera(trip),
+                    initialZoom: 13,
                   ),
-                  onMapCreated: (c) => mapController = c,
-                  markers: _markers(trip),
-                  polylines: _polylines(trip),
-                  myLocationEnabled: true,
-                  myLocationButtonEnabled: true,
+                  children: [
+                    TileLayer(
+                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.example.ride_app',
+                    ),
+                    PolylineLayer(
+                      polylines: _polylines(trip),
+                    ),
+                    MarkerLayer(
+                      markers: _markers(trip),
+                    ),
+                  ],
                 ),
               ),
 

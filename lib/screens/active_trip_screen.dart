@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'rating_screen.dart';
 import 'driver_home_screen.dart';
 
@@ -43,7 +44,7 @@ class ActiveTripScreen extends StatefulWidget {
 }
 
 class _ActiveTripScreenState extends State<ActiveTripScreen> {
-  GoogleMapController? mapController;
+  final MapController mapController = MapController();
 
   /// 0 = đang đến đón, 1 = đã đón khách, 2 = hoàn thành
   int trangThai = 0;
@@ -58,40 +59,31 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
     return "${buf.toString()}₫";
   }
 
-  Set<Marker> _buildMarkers() {
-    return {
+  List<Marker> _buildMarkers() {
+    return [
       Marker(
-        markerId: const MarkerId("pickup"),
-        position: widget.trip.diemDon,
-        icon: BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueGreen),
-        infoWindow: InfoWindow(
-          title: "Điểm đón",
-          snippet: widget.trip.diaChiDon,
-        ),
+        point: widget.trip.diemDon,
+        width: 40,
+        height: 40,
+        child: const Icon(Icons.location_on, color: Colors.green, size: 40),
       ),
       Marker(
-        markerId: const MarkerId("destination"),
-        position: widget.trip.diemDen,
-        icon: BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueRed),
-        infoWindow: InfoWindow(
-          title: "Điểm đến",
-          snippet: widget.trip.diaChiDen,
-        ),
+        point: widget.trip.diemDen,
+        width: 40,
+        height: 40,
+        child: const Icon(Icons.location_on, color: Colors.red, size: 40),
       ),
-    };
+    ];
   }
 
-  Set<Polyline> _buildPolylines() {
-    return {
+  List<Polyline> _buildPolylines() {
+    return [
       Polyline(
-        polylineId: const PolylineId("route"),
         color: Colors.deepPurple,
-        width: 4,
+        strokeWidth: 4,
         points: [widget.trip.diemDon, widget.trip.diemDen],
       ),
-    };
+    ];
   }
 
   LatLng _midpoint() {
@@ -233,16 +225,24 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
           // Bản đồ
           SizedBox(
             height: 280,
-            child: GoogleMap(
-              initialCameraPosition: CameraPosition(
-                target: _midpoint(),
-                zoom: 13,
+            child: FlutterMap(
+              mapController: mapController,
+              options: MapOptions(
+                initialCenter: _midpoint(),
+                initialZoom: 13,
               ),
-              onMapCreated: (c) => mapController = c,
-              markers: _buildMarkers(),
-              polylines: _buildPolylines(),
-              myLocationEnabled: true,
-              myLocationButtonEnabled: true,
+              children: [
+                TileLayer(
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.example.ride_app',
+                ),
+                PolylineLayer(
+                  polylines: _buildPolylines(),
+                ),
+                MarkerLayer(
+                  markers: _buildMarkers(),
+                ),
+              ],
             ),
           ),
 

@@ -1,8 +1,15 @@
-const { getPool, getPrimaryConnection } = require('../../../config/database');
+// ===========================================
+// REPOSITORY - Thành viên 2 (Đức Huy)
+// Nhiệm vụ: Tương tác trực tiếp với bảng drivers, vehicles
+// SỬ DỤNG ĐÚNG logic Định tuyến của Thành viên 4
+// ===========================================
+const { getPrimaryConnection, getReplicaConnection } = require('../../../config/database');
 
-// Cập nhật vị trí tài xế
+/**
+ * Cập nhật vị trí tài xế (UPDATE → Primary)
+ */
 async function updateDriverLocation({ userId, latitude, longitude, thanh_pho }) {
-  const pool = await getPool();
+  const pool = await getPrimaryConnection(thanh_pho);
 
   try {
     const result = await pool.request()
@@ -28,9 +35,11 @@ async function updateDriverLocation({ userId, latitude, longitude, thanh_pho }) 
   }
 }
 
-// Lấy vị trí hiện tại của tài xế
-async function getDriverLocation(driverId) {
-  const pool = await getPool();
+/**
+ * Lấy vị trí hiện tại của tài xế (SELECT → Replica để giảm tải)
+ */
+async function getDriverLocation(driverId, thanh_pho = 'HCM') {
+  const pool = await getReplicaConnection(thanh_pho);
 
   try {
     const result = await pool.request()
@@ -48,7 +57,9 @@ async function getDriverLocation(driverId) {
   }
 }
 
-// Tính khoảng cách giữa 2 điểm GPS (công thức Haversine)
+/**
+ * Tính khoảng cách giữa 2 điểm GPS (công thức Haversine)
+ */
 function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371; // Bán kính Trái Đất (km)
   const dLat = (lat2 - lat1) * (Math.PI / 180);
@@ -63,7 +74,9 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   return R * c; // Khoảng cách tính bằng km
 }
 
-// Tìm tài xế gần nhất
+/**
+ * Tìm tài xế gần nhất (SELECT → Replica để giảm tải cho Primary)
+ */
 async function findNearestDrivers({ 
   latitude, 
   longitude, 
@@ -72,7 +85,7 @@ async function findNearestDrivers({
   max_distance = 5, // km
   limit = 5 
 }) {
-  const pool = await getPool();
+  const pool = await getReplicaConnection(thanh_pho);
 
   try {
     // Lấy danh sách tài xế khả dụng trong thành phố
@@ -112,9 +125,11 @@ async function findNearestDrivers({
   }
 }
 
-// Lấy danh sách tài xế khả dụng theo thành phố
+/**
+ * Lấy danh sách tài xế khả dụng theo thành phố (SELECT → Replica)
+ */
 async function getAvailableDrivers(thanh_pho) {
-  const pool = await getPool();
+  const pool = await getReplicaConnection(thanh_pho);
 
   try {
     const result = await pool.request()
@@ -135,9 +150,11 @@ async function getAvailableDrivers(thanh_pho) {
   }
 }
 
-// Cập nhật trạng thái khả dụng của tài xế
-async function updateDriverAvailability(driverId, is_available) {
-  const pool = await getPool();
+/**
+ * Cập nhật trạng thái khả dụng của tài xế (UPDATE → Primary)
+ */
+async function updateDriverAvailability(driverId, is_available, thanh_pho = 'HCM') {
+  const pool = await getPrimaryConnection(thanh_pho);
 
   try {
     const result = await pool.request()
@@ -159,9 +176,11 @@ async function updateDriverAvailability(driverId, is_available) {
   }
 }
 
-// Lấy thông tin chi tiết tài xế
-async function getDriverProfile(driverId) {
-  const pool = await getPool();
+/**
+ * Lấy thông tin chi tiết tài xế (SELECT → Replica)
+ */
+async function getDriverProfile(driverId, thanh_pho = 'HCM') {
+  const pool = await getReplicaConnection(thanh_pho);
 
   try {
     const result = await pool.request()

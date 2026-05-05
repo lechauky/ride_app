@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:latlong2/latlong.dart';
 
 /// Thông tin chuyến đi đang chạy của khách (sau khi tài xế nhận cuốc)
 class PassengerTripInfo {

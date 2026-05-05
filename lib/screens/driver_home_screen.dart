@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:latlong2/latlong.dart';
 import 'vehicle_info_screen.dart';
 import 'notifications_screen.dart';
 import 'rating_screen.dart';

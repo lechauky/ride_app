@@ -54,3 +54,13 @@ backend/database/
 .cursorrules
 .cursor
 .gitignore
+
+# Tạm khóa các file chuyển đổi sang OpenStreetMap để không đẩy lên Git
+pubspec.yaml
+lib/screens/booking_screen.dart
+lib/screens/passenger_trip_screen.dart
+lib/screens/active_trip_screen.dart
+lib/screens/ride_types_screen.dart
+lib/screens/payment_screen.dart
+lib/screens/driver_home_screen.dart
+lib/services/active_trip_store.dart

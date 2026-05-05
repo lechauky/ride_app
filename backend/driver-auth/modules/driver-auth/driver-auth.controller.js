@@ -1,3 +1,7 @@
+// ===========================================
+// CONTROLLER - Thành viên 2 (Đức Huy)
+// Nhiệm vụ: Nhận HTTP Request, gọi Service, trả Response
+// ===========================================
 const service = require('./driver-auth.service');
 
 // Cập nhật vị trí tài xế
@@ -64,7 +68,7 @@ async function getAvailableDrivers(req, res) {
 // Cập nhật trạng thái khả dụng
 async function updateAvailability(req, res) {
   try {
-    const { is_available } = req.body;
+    const { is_available, thanh_pho } = req.body;
     const driverId = req.user.driver_id; // Từ JWT token (nếu có)
 
     if (!driverId) {
@@ -74,7 +78,9 @@ async function updateAvailability(req, res) {
       });
     }
 
-    const result = await service.updateAvailability(driverId, is_available);
+    // Truyền thanh_pho xuống service để định tuyến đúng DB
+    const city = thanh_pho || req.user.thanh_pho || 'HCM';
+    const result = await service.updateAvailability(driverId, is_available, city);
 
     return res.status(200).json(result);
   } catch (error) {
@@ -97,7 +103,9 @@ async function getProfile(req, res) {
       });
     }
 
-    const result = await service.getProfile(driverId);
+    // Truyền thanh_pho từ JWT hoặc query để định tuyến đúng DB
+    const city = req.query.thanh_pho || req.user.thanh_pho || 'HCM';
+    const result = await service.getProfile(driverId, city);
 
     return res.status(200).json(result);
   } catch (error) {
