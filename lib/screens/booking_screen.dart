@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -92,6 +93,10 @@ class _BookingScreenState extends State<BookingScreen> {
   }
   
   Future<LatLng?> getLatLngFromAddress(String address) async {
+    if (kIsWeb) {
+      // Geocoding không hỗ trợ tốt trên web, trả null
+      return null;
+    }
     try {
       List<Location> locations = await locationFromAddress(address);
       return LatLng(locations.first.latitude, locations.first.longitude);
@@ -102,6 +107,17 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   Future<void> getCurrentLocation() async {
+    if (kIsWeb) {
+      // Trên web, dùng vị trí mặc định TP.HCM
+      setState(() {
+        currentPosition = LatLng(10.762622, 106.660172);
+        pickupLatLng = currentPosition;
+        pickup.text = "10.762622, 106.660172";
+      });
+      mapController.move(currentPosition, 16);
+      return;
+    }
+
     // xin quyền
     LocationPermission permission = await Geolocator.requestPermission();
 

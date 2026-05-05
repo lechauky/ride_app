@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'auth_store.dart';
 
 class ApiService {
   static const serverMienNam = "http://10.0.2.2:5001/api";
@@ -16,6 +17,14 @@ class ApiService {
     return city == "HCM" ? backupMienNam : backupMienBac;
   }
 
+  static Map<String, String> _getHeaders() {
+    final headers = {"Content-Type": "application/json"};
+    if (AuthStore.token != null) {
+      headers["Authorization"] = "Bearer ${AuthStore.token}";
+    }
+    return headers;
+  }
+
   static Future<Map<String, dynamic>> post(
       String endpoint, String city, Map data) async {
     String primary = getPrimary(city);
@@ -24,21 +33,46 @@ class ApiService {
     try {
       final res = await http.post(
         Uri.parse("$primary/$endpoint"),
-        headers: {"Content-Type": "application/json"},
+        headers: _getHeaders(),
         body: jsonEncode(data),
       );
-
       return {"data": jsonDecode(res.body), "isBackup": false};
     } catch (e) {
       print("Primary fail → backup");
-
-      final res = await http.post(
-        Uri.parse("$backup/$endpoint"),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode(data),
-      );
-
-      return {"data": jsonDecode(res.body), "isBackup": true};
+      try {
+        final res = await http.post(
+          Uri.parse("$backup/$endpoint"),
+          headers: _getHeaders(),
+          body: jsonEncode(data),
+        );
+        return {"data": jsonDecode(res.body), "isBackup": true};
+      } catch (backupErr) {
+        return {"data": {"success": false, "message": "Mất kết nối hoàn toàn"}, "isBackup": true};
+      }
     }
   }
-}
+
+  static Future<Map<String, dynamic>> get(String endpoint, String city) async {
+    String primary = getPrimary(city);
+    String backup = getBackup(city);
+
+    try {
+      final res = await http.get(
+        Uri.parse("$primary/$endpoint"),
+        headers: _getHeaders(),
+      );
+      return {"data": jsonDecode(res.body), "isBackup": false};
+    } catch (e) {
+      print("Primary fail → backup GET");
+      try {
+        final res = await http.get(
+          Uri.parse("$backup/$endpoint"),
+          headers: _getHeaders(),
+        );
+        return {"data": jsonDecode(res.body), "isBackup": true};
+      } catch (backupErr) {
+        return {"data": {"success": false, "message": "Mất kết nối hoàn toàn"}, "isBackup": true};
+      }
+    }
+  }
+}

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/location_service.dart';
 import '../services/active_trip_store.dart';
+import '../services/auth_store.dart';
 import 'booking_screen.dart';
 import 'history_screen.dart';
 import 'ride_types_screen.dart';
@@ -18,10 +19,18 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  String city = "HCM";
+  late String city;
+
+  @override
+  void initState() {
+    super.initState();
+    city = AuthStore.currentUser.value?.thanhPho ?? "HCM";
+  }
 
   @override
   Widget build(BuildContext context) {
+    final user = AuthStore.currentUser.value;
+    final tenHienThi = user?.hoTen ?? "Khách";
     return Scaffold(
       appBar: AppBar(
         title: const Text("Ride App"),
@@ -42,6 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () {
+              AuthStore.logout();
               Navigator.pushAndRemoveUntil(
                 context,
                 MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -67,22 +77,22 @@ class _HomeScreenState extends State<HomeScreen> {
                 borderRadius: BorderRadius.circular(18),
               ),
               child: Row(
-                children: const [
-                  CircleAvatar(
+                children: [
+                  const CircleAvatar(
                     radius: 28,
                     backgroundColor: Colors.white,
                     child: Icon(Icons.person,
                         color: Colors.deepPurple, size: 30),
                   ),
-                  SizedBox(width: 12),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("Xin chào,",
+                        Text("Xin chào, $tenHienThi",
                             style:
-                                TextStyle(color: Colors.white70, fontSize: 13)),
-                        Text("Bạn muốn đi đâu hôm nay?",
+                                const TextStyle(color: Colors.white70, fontSize: 13)),
+                        const Text("Bạn muốn đi đâu hôm nay?",
                             style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 17,

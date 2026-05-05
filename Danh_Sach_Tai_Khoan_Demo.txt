@@ -1,0 +1,28 @@
+=== DANH SÁCH TÀI KHOẢN & MẬT KHẨU (DEMO) ===
+
+Tài khoản sẵn để test thữ (có nhiều nữa trong db)
+
+1. Khách hàng 1 (Hồ Chí Minh)
+- Email: khachhang.hcm@rideapp.vn
+- Mật khẩu: 123456
+- Thành phố: HCM
+- Vai trò: Người dùng
+
+2. Khách hàng 2 (Hà Nội)
+- Email: khachhang.hn@rideapp.vn
+- Mật khẩu: 123456
+- Thành phố: HN
+- Vai trò: Người dùng
+
+3. Tài xế 1 (Hồ Chí Minh)
+- Email: taixe.hcm@rideapp.vn
+- Mật khẩu: 123456
+- Thành phố: HCM
+- Vai trò: Tài xế
+
+4. Tài xế 2 (Hà Nội)
+- Email: taixe.hn@rideapp.vn
+- Mật khẩu: 123456
+- Thành phố: HN
+- Vai trò: Tài xế
+

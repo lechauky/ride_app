@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
+import '../services/auth_store.dart';
 import 'vehicle_info_screen.dart';
 import 'notifications_screen.dart';
 import 'rating_screen.dart';
@@ -138,6 +139,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final user = AuthStore.currentUser.value;
+    final tenTaiXe = user?.hoTen ?? "Tài xế";
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Tài xế"),
@@ -157,6 +161,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () {
+              AuthStore.logout();
               Navigator.pushAndRemoveUntil(
                 context,
                 MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -193,17 +198,17 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text("Xin chào,",
+                      children: [
+                        const Text("Xin chào,",
                             style:
                                 TextStyle(color: Colors.white70, fontSize: 13)),
-                        Text("Tài xế Nguyễn Văn A",
-                            style: TextStyle(
+                        Text("Tài xế $tenTaiXe",
+                            style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold)),
-                        SizedBox(height: 4),
-                        Text("⭐ 4.9 • 234 chuyến",
+                        const SizedBox(height: 4),
+                        const Text("⭐ 4.9 • 234 chuyến",
                             style: TextStyle(color: Colors.white70)),
                       ],
                     ),

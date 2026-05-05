@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 import 'login_screen.dart';
 import 'vehicle_info_screen.dart';
 
@@ -24,6 +25,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool obscurePass = true;
   bool obscureRePass = true;
   bool agree = false;
+  bool isProcessing = false;
 
   @override
   void initState() {
@@ -41,7 +43,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  void _doRegister() {
+  Future<void> _doRegister() async {
     if (!_formKey.currentState!.validate()) return;
     if (!agree) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -50,22 +52,48 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Đăng ký thành công!")),
-    );
+    setState(() => isProcessing = true);
 
-    // Nếu là tài xế, sang màn hình nhập thông tin xe
-    if (role == 1) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const VehicleInfoScreen(fromRegister: true),
-        ),
-      );
-    } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
+    try {
+      final res = await ApiService.post('auth/register', thanhPho, {
+        "ho_ten": hoTenCtl.text.trim(),
+        "email": emailCtl.text.trim(),
+        "mat_khau": passCtl.text,
+        "so_dien_thoai": sdtCtl.text.trim(),
+        "thanh_pho": thanhPho,
+      });
+
+      if (!mounted) return;
+      setState(() => isProcessing = false);
+
+      if (res["data"] != null && res["data"]["success"] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Đăng ký thành công!")),
+        );
+
+        // Nếu là tài xế, sang màn hình nhập thông tin xe
+        if (role == 1) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const VehicleInfoScreen(fromRegister: true),
+            ),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(res["data"]?["message"] ?? "Đăng ký thất bại")),
+        );
+      }
+    } catch (e) {
+      if (mounted) setState(() => isProcessing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Lỗi mạng: $e")),
       );
     }
   }
@@ -123,7 +151,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
               // Chọn thành phố
               DropdownButtonFormField<String>(
-                initialValue: thanhPho,
+                value: thanhPho,
                 items: const [
                   DropdownMenuItem(value: "HCM", child: Text("TP. Hồ Chí Minh")),
                   DropdownMenuItem(value: "HN", child: Text("Hà Nội")),
@@ -165,7 +193,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
               const SizedBox(height: 8),
               ElevatedButton(
-                onPressed: _doRegister,
+                onPressed: isProcessing ? null : _doRegister,
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 52),
                   backgroundColor: Colors.deepPurple,
@@ -173,9 +201,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14)),
                 ),
-                child: Text(role == 1
-                    ? "Đăng ký & nhập thông tin xe"
-                    : "Đăng ký"),
+                child: isProcessing
+                    ? const SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2),
+                      )
+                    : Text(role == 1
+                        ? "Đăng ký & nhập thông tin xe"
+                        : "Đăng ký"),
               ),
 
               const SizedBox(height: 12),

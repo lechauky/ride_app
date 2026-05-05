@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import '../services/active_trip_store.dart';
+import '../services/api_service.dart';
+import '../services/auth_store.dart';
 import 'passenger_trip_screen.dart';
 
 class PaymentMethod {
@@ -89,68 +91,94 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   Future<void> _confirmPayment() async {
     setState(() => isProcessing = true);
-    await Future.delayed(const Duration(milliseconds: 1200));
-    if (!mounted) return;
-    setState(() => isProcessing = false);
+    
+    try {
+      final city = AuthStore.currentUser.value?.thanhPho ?? "HCM";
+      final res = await ApiService.post('trips', city, {
+        "ma_loai_dich_vu": widget.tenLoaiXe.toLowerCase().contains("máy") ? "xe_may" : "o_to",
+        "thanh_pho": city,
+        "vi_do_diem_don": widget.diemDon?.latitude ?? 10.0,
+        "kinh_do_diem_don": widget.diemDon?.longitude ?? 106.0,
+        "vi_do_diem_den": widget.diemDen?.latitude ?? 10.0,
+        "kinh_do_diem_den": widget.diemDen?.longitude ?? 106.0,
+        "dia_chi_diem_don": widget.diaChiDon ?? "Vị trí đón hiện tại",
+        "dia_chi_diem_den": widget.diaChiDen ?? "Điểm đến đã chọn",
+        "khoang_cach_km": widget.khoangCachKm,
+      });
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18)),
-        title: Row(
-          children: const [
-            Icon(Icons.check_circle, color: Colors.green, size: 28),
-            SizedBox(width: 8),
-            Text("Thanh toán thành công"),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-                "Bạn đã thanh toán ${_formatVND(widget.tongTien)} bằng ${methods[selected].ten}."),
-            const SizedBox(height: 6),
-            Text(
-              "Mã giao dịch: #TX${DateTime.now().millisecondsSinceEpoch}",
-              style: const TextStyle(
-                  fontSize: 12, color: Colors.black54),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              "Hệ thống đang tìm tài xế cho bạn…",
-              style: TextStyle(
-                  fontSize: 13, fontStyle: FontStyle.italic),
-            ),
-          ],
-        ),
-        actions: [
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.deepPurple,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () {
-              Navigator.pop(context); // đóng dialog
+      if (!mounted) return;
+      setState(() => isProcessing = false);
 
-              // Lưu chuyến vào store và mở màn thông tin tài xế
-              final trip = _createTrip();
-              ActiveTripStore.startTrip(trip);
+      if (res["data"] != null && res["data"]["success"] == true) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => AlertDialog(
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18)),
+            title: Row(
+              children: const [
+                Icon(Icons.check_circle, color: Colors.green, size: 28),
+                SizedBox(width: 8),
+                Text("Thanh toán thành công"),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                    "Bạn đã thanh toán ${_formatVND(widget.tongTien)} bằng ${methods[selected].ten}."),
+                const SizedBox(height: 6),
+                Text(
+                  "Mã giao dịch: #${res["data"]["data"]?["id"] ?? DateTime.now().millisecondsSinceEpoch}",
+                  style: const TextStyle(
+                      fontSize: 12, color: Colors.black54),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  "Hệ thống đang tìm tài xế cho bạn…",
+                  style: TextStyle(
+                      fontSize: 13, fontStyle: FontStyle.italic),
+                ),
+              ],
+            ),
+            actions: [
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.deepPurple,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () {
+                  Navigator.pop(context); // đóng dialog
 
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => const PassengerTripScreen()),
-                (r) => false,
-              );
-            },
-            child: const Text("Xem tài xế"),
+                  // Lưu chuyến vào store và mở màn thông tin tài xế
+                  final trip = _createTrip();
+                  ActiveTripStore.startTrip(trip);
+
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const PassengerTripScreen()),
+                    (r) => false,
+                  );
+                },
+                child: const Text("Xem tài xế"),
+              ),
+            ],
           ),
-        ],
-      ),
-    );
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(res["data"]?["message"] ?? "Lỗi tạo chuyến")),
+        );
+      }
+    } catch (e) {
+      if (mounted) setState(() => isProcessing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Lỗi mạng: $e")),
+      );
+    }
   }
 
   @override
