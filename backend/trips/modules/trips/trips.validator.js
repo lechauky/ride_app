@@ -149,6 +149,45 @@ function validateTripActionPayload(tripId, user, body) {
   };
 }
 
+function validateRatingPayload(tripId, user, body) {
+  const errors = [];
+  const thanh_pho = normalizeCity(body?.thanh_pho || user?.thanh_pho);
+  const diem_so = Number(body?.diem_so);
+  const loai_nguoi_danh_gia = String(body?.loai_nguoi_danh_gia || '').trim();
+
+  if (!tripId || !String(tripId).trim()) {
+    errors.push('tripId là bắt buộc');
+  }
+  if (!user?.id) {
+    errors.push('Thiếu người đánh giá');
+  }
+  if (!thanh_pho) {
+    errors.push('thanh_pho chỉ được là HCM hoặc HN');
+  }
+  if (!Number.isInteger(diem_so) || diem_so < 1 || diem_so > 5) {
+    errors.push('diem_so phải từ 1 đến 5');
+  }
+  if (!['user', 'driver'].includes(loai_nguoi_danh_gia)) {
+    errors.push('loai_nguoi_danh_gia chỉ được là user hoặc driver');
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    normalized: {
+      tripId: String(tripId || '').trim(),
+      nguoi_danh_gia: user?.id ? String(user.id).trim() : null,
+      loai_nguoi_danh_gia,
+      diem_so,
+      tags_nhan_xet: Array.isArray(body?.tags_nhan_xet)
+        ? JSON.stringify(body.tags_nhan_xet)
+        : null,
+      nhan_xet: body?.nhan_xet ? String(body.nhan_xet).trim() : null,
+      thanh_pho,
+    },
+  };
+}
+
 function validateHistoryParams(userId, query) {
   const errors = [];
   const normalizedCity = normalizeCity(query?.thanh_pho);
@@ -188,5 +227,6 @@ module.exports = {
   validateHistoryParams,
   validatePendingTripsParams,
   validateTripActionPayload,
+  validateRatingPayload,
   normalizeCity,
 };

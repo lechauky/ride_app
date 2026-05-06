@@ -33,6 +33,12 @@ router.post('/available', controller.getAvailableDrivers);
 router.put('/availability', authMiddleware, controller.updateAvailability);
 
 /**
+ * POST /api/drivers/vehicle
+ * Tạo/cập nhật hồ sơ tài xế và xe hiện tại từ token
+ */
+router.post('/vehicle', authMiddleware, controller.saveVehicle);
+
+/**
  * GET /api/drivers/profile/:driverId
  * Lấy thông tin chi tiết tài xế
  */
@@ -45,13 +51,7 @@ router.get('/profile/:driverId', controller.getProfile);
 router.get('/me', authMiddleware, async (req, res) => {
   try {
     const driverId = req.user.driver_id;
-    if (!driverId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Không tìm thấy ID tài xế'
-      });
-    }
-    req.params.driverId = driverId;
+    if (driverId) req.params.driverId = driverId;
     return controller.getProfile(req, res);
   } catch (error) {
     return res.status(500).json({

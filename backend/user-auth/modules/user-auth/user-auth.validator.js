@@ -4,9 +4,15 @@ function normalizeCity(city) {
   return value === 'HN' || value === 'HCM' ? value : null;
 }
 
+function normalizeRole(role) {
+  if (!role) return 'user';
+  const value = String(role).trim().toLowerCase();
+  return value === 'user' || value === 'driver' ? value : null;
+}
+
 function validateRegisterPayload(payload) {
   const errors = [];
-  const { ho_ten, email, mat_khau, thanh_pho } = payload || {};
+  const { ho_ten, email, mat_khau, thanh_pho, vai_tro } = payload || {};
 
   if (!ho_ten || !String(ho_ten).trim()) errors.push('ho_ten là bắt buộc');
   if (!email || !String(email).trim()) errors.push('email là bắt buộc');
@@ -16,7 +22,10 @@ function validateRegisterPayload(payload) {
   const city = normalizeCity(thanh_pho);
   if (thanh_pho && !city) errors.push('thanh_pho chỉ được là HCM hoặc HN');
 
-  return { valid: errors.length === 0, errors, normalized: { thanh_pho: city } };
+  const role = normalizeRole(vai_tro);
+  if (!role) errors.push('vai_tro chỉ được là user hoặc driver');
+
+  return { valid: errors.length === 0, errors, normalized: { thanh_pho: city, vai_tro: role } };
 }
 
 function validateLoginPayload(payload) {
@@ -29,4 +38,4 @@ function validateLoginPayload(payload) {
   return { valid: errors.length === 0, errors };
 }
 
-module.exports = { validateRegisterPayload, validateLoginPayload, normalizeCity };
+module.exports = { validateRegisterPayload, validateLoginPayload, normalizeCity, normalizeRole };

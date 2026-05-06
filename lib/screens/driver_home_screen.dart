@@ -193,8 +193,28 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     }
   }
 
-  void _onToggleRanh(bool v) {
+  Future<void> _onToggleRanh(bool v) async {
+    final previous = dangRanh;
     setState(() => dangRanh = v);
+    final city = AuthStore.currentUser.value?.thanhPho ?? "HCM";
+    final res = await ApiService.put("drivers/availability", city, {
+      "is_available": v,
+      "thanh_pho": city,
+    });
+
+    if (!mounted) return;
+    if (res["data"] == null || res["data"]["success"] != true) {
+      setState(() => dangRanh = previous);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            res["data"]?["message"] ?? "Lỗi cập nhật trạng thái tài xế",
+          ),
+        ),
+      );
+      return;
+    }
+
     if (v) {
       _loadIncomingRequest();
     } else {

@@ -480,6 +480,78 @@ async function completeTrip({ tripId, driverUserId, thanh_pho }) {
   }
 }
 
+async function saveRating({
+  tripId,
+  nguoi_danh_gia,
+  loai_nguoi_danh_gia,
+  diem_so,
+  tags_nhan_xet,
+  nhan_xet,
+  thanh_pho,
+}) {
+  const pool = await getPrimaryConnection(thanh_pho);
+  const result = await pool.request()
+    .input('ma_chuyen_di', sql.UniqueIdentifier, tripId)
+    .input('nguoi_danh_gia', sql.UniqueIdentifier, nguoi_danh_gia)
+    .input('loai_nguoi_danh_gia', sql.VarChar(10), loai_nguoi_danh_gia)
+    .input('diem_so', sql.SmallInt, diem_so)
+    .input('tags_nhan_xet', sql.NVarChar(sql.MAX), tags_nhan_xet)
+    .input('nhan_xet', sql.NVarChar(250), nhan_xet)
+    .query(`
+      IF EXISTS (
+        SELECT 1
+        FROM ratings
+        WHERE ma_chuyen_di = @ma_chuyen_di
+          AND loai_nguoi_danh_gia = @loai_nguoi_danh_gia
+      )
+      BEGIN
+        UPDATE ratings
+        SET nguoi_danh_gia = @nguoi_danh_gia,
+            diem_so = @diem_so,
+            tags_nhan_xet = @tags_nhan_xet,
+            nhan_xet = @nhan_xet,
+            ngay_danh_gia = SYSDATETIME()
+        WHERE ma_chuyen_di = @ma_chuyen_di
+          AND loai_nguoi_danh_gia = @loai_nguoi_danh_gia
+      END
+      ELSE
+      BEGIN
+        INSERT INTO ratings (
+          ma_chuyen_di,
+          nguoi_danh_gia,
+          loai_nguoi_danh_gia,
+          diem_so,
+          tags_nhan_xet,
+          nhan_xet
+        )
+        VALUES (
+          @ma_chuyen_di,
+          @nguoi_danh_gia,
+          @loai_nguoi_danh_gia,
+          @diem_so,
+          @tags_nhan_xet,
+          @nhan_xet
+        )
+      END
+
+      SELECT TOP (1)
+        id,
+        ma_chuyen_di,
+        nguoi_danh_gia,
+        loai_nguoi_danh_gia,
+        diem_so,
+        tags_nhan_xet,
+        nhan_xet,
+        ngay_danh_gia
+      FROM ratings
+      WHERE ma_chuyen_di = @ma_chuyen_di
+        AND loai_nguoi_danh_gia = @loai_nguoi_danh_gia
+      ORDER BY ngay_danh_gia DESC
+    `);
+
+  return result.recordset[0] || null;
+}
+
 module.exports = {
   createTrip,
   getTripHistoryByUserId,
@@ -487,4 +559,5 @@ module.exports = {
   acceptTrip,
   rejectTrip,
   completeTrip,
+  saveRating,
 };

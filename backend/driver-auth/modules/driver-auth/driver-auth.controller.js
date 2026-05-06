@@ -70,17 +70,10 @@ async function updateAvailability(req, res) {
   try {
     const { is_available, thanh_pho } = req.body;
     const driverId = req.user.driver_id; // Từ JWT token (nếu có)
-
-    if (!driverId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Không tìm thấy ID tài xế trong token'
-      });
-    }
-
-    // Truyền thanh_pho xuống service để định tuyến đúng DB
     const city = thanh_pho || req.user.thanh_pho || 'HCM';
-    const result = await service.updateAvailability(driverId, is_available, city);
+    const result = driverId
+      ? await service.updateAvailability(driverId, is_available, city)
+      : await service.updateAvailabilityByUser(req.user.id, is_available, city);
 
     return res.status(200).json(result);
   } catch (error) {
@@ -94,9 +87,9 @@ async function updateAvailability(req, res) {
 // Lấy thông tin chi tiết tài xế
 async function getProfile(req, res) {
   try {
-    const driverId = req.user.driver_id || req.params.driverId;
+    const driverId = req.user?.driver_id || req.params.driverId;
 
-    if (!driverId) {
+    if (!driverId && !req.user?.id) {
       return res.status(400).json({
         success: false,
         message: 'Thiếu ID tài xế'
@@ -104,8 +97,27 @@ async function getProfile(req, res) {
     }
 
     // Truyền thanh_pho từ JWT hoặc query để định tuyến đúng DB
-    const city = req.query.thanh_pho || req.user.thanh_pho || 'HCM';
-    const result = await service.getProfile(driverId, city);
+    const city = req.query.thanh_pho || req.user?.thanh_pho || 'HCM';
+    const result = driverId
+      ? await service.getProfile(driverId, city)
+      : await service.getProfileByUser(req.user.id, city);
+
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+}
+
+async function saveVehicle(req, res) {
+  try {
+    const city = req.body.thanh_pho || req.user.thanh_pho || 'HCM';
+    const result = await service.saveVehicle(req.user.id, {
+      ...req.body,
+      thanh_pho: city,
+    });
 
     return res.status(200).json(result);
   } catch (error) {
@@ -121,5 +133,6 @@ module.exports = {
   findNearestDrivers,
   getAvailableDrivers,
   updateAvailability,
-  getProfile
+  getProfile,
+  saveVehicle
 };

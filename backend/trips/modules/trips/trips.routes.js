@@ -10,5 +10,6 @@ router.get('/history/:userId', authMiddleware, controller.getTripHistoryByUserId
 router.post('/:tripId/accept', authMiddleware, controller.acceptTrip);
 router.post('/:tripId/reject', authMiddleware, controller.rejectTrip);
 router.post('/:tripId/complete', authMiddleware, controller.completeTrip);
+router.post('/:tripId/rating', authMiddleware, controller.saveRating);
 
 module.exports = router;

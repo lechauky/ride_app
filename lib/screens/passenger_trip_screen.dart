@@ -28,20 +28,24 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
   List<Marker> _markers(PassengerTripInfo t) {
     final s = <Marker>[];
     if (t.diemDon != null) {
-      s.add(Marker(
-        point: t.diemDon!,
-        width: 40,
-        height: 40,
-        child: const Icon(Icons.location_on, color: Colors.green, size: 40),
-      ));
+      s.add(
+        Marker(
+          point: t.diemDon!,
+          width: 40,
+          height: 40,
+          child: const Icon(Icons.location_on, color: Colors.green, size: 40),
+        ),
+      );
     }
     if (t.diemDen != null) {
-      s.add(Marker(
-        point: t.diemDen!,
-        width: 40,
-        height: 40,
-        child: const Icon(Icons.location_on, color: Colors.red, size: 40),
-      ));
+      s.add(
+        Marker(
+          point: t.diemDen!,
+          width: 40,
+          height: 40,
+          child: const Icon(Icons.location_on, color: Colors.red, size: 40),
+        ),
+      );
     }
     return s;
   }
@@ -83,6 +87,7 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
       MaterialPageRoute(
         builder: (_) => RatingScreen(
           target: RatingTarget.driver,
+          tripId: t.maChuyenDi,
           targetName: t.tenTaiXe,
           targetSubInfo: "${t.hangXe} • ${t.bienSo}",
         ),
@@ -95,11 +100,11 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text("Huỷ chuyến?"),
         content: const Text(
-            "Bạn có chắc muốn huỷ chuyến này không? Có thể bị tính phí huỷ chuyến."),
+          "Bạn có chắc muốn huỷ chuyến này không? Có thể bị tính phí huỷ chuyến.",
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -113,9 +118,9 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
             onPressed: () {
               Navigator.pop(context);
               ActiveTripStore.endTrip();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Đã huỷ chuyến")),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text("Đã huỷ chuyến")));
               _goHome();
             },
             child: const Text("Huỷ chuyến"),
@@ -159,17 +164,21 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 12),
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: [
-                    Colors.green.shade600,
-                    Colors.green.shade400,
-                  ]),
+                  gradient: LinearGradient(
+                    colors: [Colors.green.shade600, Colors.green.shade400],
+                  ),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.check_circle,
-                        color: Colors.white, size: 26),
+                    const Icon(
+                      Icons.check_circle,
+                      color: Colors.white,
+                      size: 26,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
@@ -186,7 +195,9 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
                           Text(
                             "Sẽ tới điểm đón sau ~ ${trip.etaPhut} phút",
                             style: const TextStyle(
-                                color: Colors.white70, fontSize: 12),
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
                           ),
                         ],
                       ),
@@ -206,15 +217,12 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
                   ),
                   children: [
                     TileLayer(
-                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      urlTemplate:
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName: 'com.example.ride_app',
                     ),
-                    PolylineLayer(
-                      polylines: _polylines(trip),
-                    ),
-                    MarkerLayer(
-                      markers: _markers(trip),
-                    ),
+                    PolylineLayer(polylines: _polylines(trip)),
+                    MarkerLayer(markers: _markers(trip)),
                   ],
                 ),
               ),
@@ -232,8 +240,7 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                              color: Colors.grey.shade300),
+                          border: Border.all(color: Colors.grey.shade300),
                         ),
                         child: Column(
                           children: [
@@ -242,8 +249,11 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
                                 const CircleAvatar(
                                   radius: 30,
                                   backgroundColor: Colors.deepPurple,
-                                  child: Icon(Icons.person,
-                                      color: Colors.white, size: 32),
+                                  child: Icon(
+                                    Icons.person,
+                                    color: Colors.white,
+                                    size: 32,
+                                  ),
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
@@ -251,23 +261,28 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Text(trip.tenTaiXe,
-                                          style: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight:
-                                                  FontWeight.bold)),
+                                      Text(
+                                        trip.tenTaiXe,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                       const SizedBox(height: 2),
                                       Row(
                                         children: [
-                                          const Icon(Icons.star,
-                                              color: Colors.amber,
-                                              size: 14),
+                                          const Icon(
+                                            Icons.star,
+                                            color: Colors.amber,
+                                            size: 14,
+                                          ),
                                           Text(
-                                              " ${trip.diemDanhGiaTaiXe}",
-                                              style: const TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors
-                                                      .black54)),
+                                            " ${trip.diemDanhGiaTaiXe}",
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.black54,
+                                            ),
+                                          ),
                                         ],
                                       ),
                                     ],
@@ -275,30 +290,40 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
                                 ),
                                 IconButton(
                                   onPressed: () {
-                                    ScaffoldMessenger.of(context)
-                                        .showSnackBar(SnackBar(
-                                            content: Text(
-                                                "Gọi ${trip.sdtTaiXe}")));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text("Gọi ${trip.sdtTaiXe}"),
+                                      ),
+                                    );
                                   },
-                                  icon: const Icon(Icons.call,
-                                      color: Colors.green),
+                                  icon: const Icon(
+                                    Icons.call,
+                                    color: Colors.green,
+                                  ),
                                   style: IconButton.styleFrom(
-                                      backgroundColor: Colors.green
-                                          .withValues(alpha: 0.1)),
+                                    backgroundColor: Colors.green.withValues(
+                                      alpha: 0.1,
+                                    ),
+                                  ),
                                 ),
                                 const SizedBox(width: 4),
                                 IconButton(
                                   onPressed: () {
-                                    ScaffoldMessenger.of(context)
-                                        .showSnackBar(const SnackBar(
-                                            content:
-                                                Text("Mở khung chat")));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text("Mở khung chat"),
+                                      ),
+                                    );
                                   },
-                                  icon: const Icon(Icons.message,
-                                      color: Colors.blue),
+                                  icon: const Icon(
+                                    Icons.message,
+                                    color: Colors.blue,
+                                  ),
                                   style: IconButton.styleFrom(
-                                      backgroundColor: Colors.blue
-                                          .withValues(alpha: 0.1)),
+                                    backgroundColor: Colors.blue.withValues(
+                                      alpha: 0.1,
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),
@@ -306,12 +331,12 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
                             Row(
                               children: [
                                 Icon(
-                                    trip.loaiXe.toLowerCase().contains(
-                                            "máy")
-                                        ? Icons.two_wheeler
-                                        : Icons.directions_car,
-                                    color: Colors.deepPurple,
-                                    size: 28),
+                                  trip.loaiXe.toLowerCase().contains("máy")
+                                      ? Icons.two_wheeler
+                                      : Icons.directions_car,
+                                  color: Colors.deepPurple,
+                                  size: 28,
+                                ),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Column(
@@ -319,28 +344,31 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                          "${trip.hangXe} • ${trip.mauXe}",
-                                          style: const TextStyle(
-                                              fontSize: 14,
-                                              fontWeight:
-                                                  FontWeight.w500)),
+                                        "${trip.hangXe} • ${trip.mauXe}",
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
                                       Text(
                                         trip.bienSo,
                                         style: const TextStyle(
-                                            fontSize: 13,
-                                            color: Colors.black54,
-                                            letterSpacing: 1.2),
+                                          fontSize: 13,
+                                          color: Colors.black54,
+                                          letterSpacing: 1.2,
+                                        ),
                                       ),
                                     ],
                                   ),
                                 ),
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 4),
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.deepPurple.shade50,
-                                    borderRadius:
-                                        BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
                                     trip.loaiXe,
@@ -364,16 +392,23 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                              color: Colors.grey.shade300),
+                          border: Border.all(color: Colors.grey.shade300),
                         ),
                         child: Column(
                           children: [
-                            _diaChiRow(Icons.my_location, Colors.green,
-                                "Điểm đón", trip.diaChiDon),
+                            _diaChiRow(
+                              Icons.my_location,
+                              Colors.green,
+                              "Điểm đón",
+                              trip.diaChiDon,
+                            ),
                             const Divider(),
-                            _diaChiRow(Icons.location_on, Colors.red,
-                                "Điểm đến", trip.diaChiDen),
+                            _diaChiRow(
+                              Icons.location_on,
+                              Colors.red,
+                              "Điểm đến",
+                              trip.diaChiDen,
+                            ),
                           ],
                         ),
                       ),
@@ -388,28 +423,27 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
                         ),
                         child: Column(
                           children: [
-                            _infoRow("Mã chuyến",
-                                "#${trip.maChuyenDi}"),
+                            _infoRow("Mã chuyến", "#${trip.maChuyenDi}"),
                             const SizedBox(height: 6),
-                            _infoRow("Khoảng cách",
-                                "${trip.khoangCachKm} km"),
+                            _infoRow("Khoảng cách", "${trip.khoangCachKm} km"),
                             const SizedBox(height: 6),
-                            _infoRow("Phương thức",
-                                trip.phuongThucThanhToan),
+                            _infoRow("Phương thức", trip.phuongThucThanhToan),
                             const Divider(),
                             Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text("Tổng cước",
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.w600)),
-                                Text(_formatVND(trip.tongTien),
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.deepPurple,
-                                    )),
+                                const Text(
+                                  "Tổng cước",
+                                  style: TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                                Text(
+                                  _formatVND(trip.tongTien),
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.deepPurple,
+                                  ),
+                                ),
                               ],
                             ),
                           ],
@@ -421,25 +455,24 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
                       OutlinedButton.icon(
                         onPressed: () => _completeAndRate(trip),
                         icon: const Icon(Icons.flag),
-                        label: const Text(
-                            "Đã hoàn thành chuyến (giả lập)"),
+                        label: const Text("Đã hoàn thành chuyến (giả lập)"),
                         style: OutlinedButton.styleFrom(
                           minimumSize: const Size.fromHeight(46),
                           foregroundColor: Colors.green,
-                          side: const BorderSide(
-                              color: Colors.green),
+                          side: const BorderSide(color: Colors.green),
                           shape: RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(12)),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 8),
                       TextButton.icon(
                         onPressed: _cancelTrip,
-                        icon: const Icon(Icons.cancel,
-                            color: Colors.red),
-                        label: const Text("Huỷ chuyến",
-                            style: TextStyle(color: Colors.red)),
+                        icon: const Icon(Icons.cancel, color: Colors.red),
+                        label: const Text(
+                          "Huỷ chuyến",
+                          style: TextStyle(color: Colors.red),
+                        ),
                       ),
                     ],
                   ),
@@ -453,9 +486,10 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
                   color: Colors.white,
                   boxShadow: [
                     BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
-                        blurRadius: 6,
-                        offset: const Offset(0, -2)),
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 6,
+                      offset: const Offset(0, -2),
+                    ),
                   ],
                 ),
                 child: ElevatedButton.icon(
@@ -467,7 +501,8 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
                     backgroundColor: Colors.deepPurple,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                 ),
               ),
@@ -478,8 +513,7 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
     );
   }
 
-  Widget _diaChiRow(
-      IconData icon, Color color, String label, String value) {
+  Widget _diaChiRow(IconData icon, Color color, String label, String value) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -489,13 +523,18 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label,
-                  style: const TextStyle(
-                      fontSize: 12, color: Colors.black54)),
+              Text(
+                label,
+                style: const TextStyle(fontSize: 12, color: Colors.black54),
+              ),
               const SizedBox(height: 2),
-              Text(value,
-                  style: const TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w500)),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ],
           ),
         ),
@@ -507,12 +546,14 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label,
-            style:
-                const TextStyle(fontSize: 13, color: Colors.black54)),
-        Text(value,
-            style: const TextStyle(
-                fontSize: 14, fontWeight: FontWeight.w500)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 13, color: Colors.black54),
+        ),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+        ),
       ],
     );
   }

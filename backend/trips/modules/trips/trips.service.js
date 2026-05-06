@@ -3,6 +3,7 @@ const {
   validateCreateTripPayload,
   validateHistoryParams,
   validatePendingTripsParams,
+  validateRatingPayload,
   validateTripActionPayload,
 } = require('./trips.validator');
 
@@ -162,6 +163,27 @@ async function completeTrip(tripId, user, body) {
   }
 }
 
+async function saveRating(tripId, user, body) {
+  const validation = validateRatingPayload(tripId, user, body);
+  if (!validation.valid) {
+    return {
+      status: 400,
+      body: { success: false, message: validation.errors.join(', ') },
+    };
+  }
+
+  const rating = await repository.saveRating(validation.normalized);
+
+  return {
+    status: 200,
+    body: {
+      success: true,
+      message: 'Lưu đánh giá thành công',
+      data: rating,
+    },
+  };
+}
+
 module.exports = {
   createTrip,
   getTripHistoryByUserId,
@@ -169,4 +191,5 @@ module.exports = {
   acceptTrip,
   rejectTrip,
   completeTrip,
+  saveRating,
 };

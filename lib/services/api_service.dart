@@ -29,7 +29,10 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> post(
-      String endpoint, String city, Map data) async {
+    String endpoint,
+    String city,
+    Map data,
+  ) async {
     String primary = getPrimary(city);
     String backup = getBackup(city);
 
@@ -50,7 +53,10 @@ class ApiService {
         );
         return {"data": jsonDecode(res.body), "isBackup": true};
       } catch (backupErr) {
-        return {"data": {"success": false, "message": "Mất kết nối hoàn toàn"}, "isBackup": true};
+        return {
+          "data": {"success": false, "message": "Mất kết nối hoàn toàn"},
+          "isBackup": true,
+        };
       }
     }
   }
@@ -74,8 +80,44 @@ class ApiService {
         );
         return {"data": jsonDecode(res.body), "isBackup": true};
       } catch (backupErr) {
-        return {"data": {"success": false, "message": "Mất kết nối hoàn toàn"}, "isBackup": true};
+        return {
+          "data": {"success": false, "message": "Mất kết nối hoàn toàn"},
+          "isBackup": true,
+        };
       }
     }
   }
-}
+
+  static Future<Map<String, dynamic>> put(
+    String endpoint,
+    String city,
+    Map data,
+  ) async {
+    String primary = getPrimary(city);
+    String backup = getBackup(city);
+
+    try {
+      final res = await http.put(
+        Uri.parse("$primary/$endpoint"),
+        headers: _getHeaders(),
+        body: jsonEncode(data),
+      );
+      return {"data": jsonDecode(res.body), "isBackup": false};
+    } catch (e) {
+      print("Primary fail → backup PUT");
+      try {
+        final res = await http.put(
+          Uri.parse("$backup/$endpoint"),
+          headers: _getHeaders(),
+          body: jsonEncode(data),
+        );
+        return {"data": jsonDecode(res.body), "isBackup": true};
+      } catch (backupErr) {
+        return {
+          "data": {"success": false, "message": "Mất kết nối hoàn toàn"},
+          "isBackup": true,
+        };
+      }
+    }
+  }
+}

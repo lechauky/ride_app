@@ -246,6 +246,7 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
                   MaterialPageRoute(
                     builder: (_) => RatingScreen(
                       target: RatingTarget.passenger,
+                      tripId: widget.trip.maChuyenDi,
                       targetName: widget.trip.tenKhach,
                       targetSubInfo:
                           "${widget.trip.soDienThoai} • Chuyến #${widget.trip.maChuyenDi}",

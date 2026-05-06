@@ -4,8 +4,6 @@ import '../services/active_trip_store.dart';
 import '../services/auth_store.dart';
 import 'booking_screen.dart';
 import 'history_screen.dart';
-import 'ride_types_screen.dart';
-import 'payment_screen.dart';
 import 'rating_screen.dart';
 import 'notifications_screen.dart';
 import 'login_screen.dart';

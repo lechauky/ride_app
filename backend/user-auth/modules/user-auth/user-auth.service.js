@@ -14,11 +14,13 @@ async function register(payload) {
     return { status: 400, body: { success: false, message: validation.errors.join(', ') } };
   }
 
-  const { ho_ten, email, mat_khau, so_dien_thoai, thanh_pho } = payload;
+  const { ho_ten, email, mat_khau, so_dien_thoai } = payload;
   const city = validation.normalized.thanh_pho || 'HCM';
+  const role = validation.normalized.vai_tro || 'user';
 
   // Kiểm tra email đã tồn tại chưa (SELECT → Replica)
-  const existing = await repository.findUserByEmail(email, city);
+  const existing = await repository.findUserByEmail(email, city)
+    || await repository.findUserByEmailPrimary(email, city);
   if (existing) {
     return { status: 409, body: { success: false, message: 'Email đã tồn tại' } };
   }
@@ -31,13 +33,21 @@ async function register(payload) {
     mat_khau: hashedPassword,
     so_dien_thoai: so_dien_thoai ? String(so_dien_thoai).trim() : null,
     thanh_pho: city,
+    vai_tro: role,
   });
+
+  const token = jwt.sign(
+    { id: user.id, email: user.email, ho_ten: user.ho_ten, thanh_pho: user.thanh_pho, vai_tro: user.vai_tro },
+    process.env.JWT_SECRET,
+    { expiresIn: '7d' }
+  );
 
   return {
     status: 201,
     body: {
       success: true,
       message: 'Đăng ký thành công',
+      token,
       data: user,
     },
   };
@@ -52,10 +62,12 @@ async function login(payload) {
   const { email, mat_khau, thanh_pho } = payload;
 
   // Tự động tìm user trên cả 2 DB nếu không truyền thanh_pho
-  let user = await repository.findUserByEmail(String(email).trim().toLowerCase(), thanh_pho || 'HCM');
+  let user = await repository.findUserByEmail(String(email).trim().toLowerCase(), thanh_pho || 'HCM')
+    || await repository.findUserByEmailPrimary(String(email).trim().toLowerCase(), thanh_pho || 'HCM');
   
   if (!user && !thanh_pho) {
-    user = await repository.findUserByEmail(String(email).trim().toLowerCase(), 'HN');
+    user = await repository.findUserByEmail(String(email).trim().toLowerCase(), 'HN')
+      || await repository.findUserByEmailPrimary(String(email).trim().toLowerCase(), 'HN');
   }
 
   if (!user) {
@@ -68,7 +80,7 @@ async function login(payload) {
   }
 
   const token = jwt.sign(
-    { id: user.id, email: user.email, ho_ten: user.ho_ten, thanh_pho: user.thanh_pho },
+    { id: user.id, email: user.email, ho_ten: user.ho_ten, thanh_pho: user.thanh_pho, vai_tro: user.vai_tro },
     process.env.JWT_SECRET,
     { expiresIn: '7d' }
   );
@@ -85,6 +97,7 @@ async function login(payload) {
         email: user.email,
         so_dien_thoai: user.so_dien_thoai,
         thanh_pho: user.thanh_pho,
+        vai_tro: user.vai_tro,
         ngay_tao: user.ngay_tao,
       },
     },

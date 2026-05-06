@@ -153,6 +153,29 @@ async function updateAvailability(driverId, is_available, thanh_pho = 'HCM') {
   };
 }
 
+async function updateAvailabilityByUser(userId, is_available, thanh_pho = 'HCM') {
+  if (!userId) {
+    throw new Error('Thiếu ID tài khoản tài xế');
+  }
+
+  const driver = await repository.updateDriverAvailabilityByUser(userId, is_available, thanh_pho);
+
+  if (!driver) {
+    throw new Error('Không tìm thấy tài xế');
+  }
+
+  return {
+    success: true,
+    message: 'Cập nhật trạng thái thành công',
+    data: {
+      id: driver.id,
+      ho_ten: driver.ho_ten,
+      is_available: driver.is_available === 1 || driver.is_available === true,
+      thanh_pho: driver.thanh_pho
+    }
+  };
+}
+
 // Lấy thông tin chi tiết tài xế (SELECT → Replica qua repository)
 async function getProfile(driverId, thanh_pho = 'HCM') {
   if (!driverId) {
@@ -165,6 +188,10 @@ async function getProfile(driverId, thanh_pho = 'HCM') {
     throw new Error('Không tìm thấy tài xế');
   }
 
+  return mapProfile(driver);
+}
+
+function mapProfile(driver) {
   return {
     success: true,
     message: 'Lấy thông tin tài xế thành công',
@@ -185,8 +212,82 @@ async function getProfile(driverId, thanh_pho = 'HCM') {
         loai_xe: driver.loai_xe,
         bien_so: driver.bien_so,
         hang_xe: driver.hang_xe,
-        mau_xe: driver.mau_xe
+        mau_xe: driver.mau_xe,
+        nam_san_xuat: driver.nam_san_xuat
       } : null
+    }
+  };
+}
+
+async function getProfileByUser(userId, thanh_pho = 'HCM') {
+  if (!userId) {
+    throw new Error('Thiếu ID tài khoản tài xế');
+  }
+
+  const driver = await repository.getDriverProfileByUserId(userId, thanh_pho);
+
+  if (!driver) {
+    throw new Error('Không tìm thấy tài xế');
+  }
+
+  return mapProfile(driver);
+}
+
+async function saveVehicle(userId, payload) {
+  if (!userId) {
+    throw new Error('Thiếu ID tài khoản tài xế');
+  }
+
+  const thanh_pho = payload.thanh_pho || 'HCM';
+  const loai_xe = String(payload.loai_xe || '').trim();
+  const bien_so = String(payload.bien_so || '').trim().toUpperCase();
+  const hang_xe = String(payload.hang_xe || '').trim();
+  const mau_xe = String(payload.mau_xe || '').trim();
+  const nam_san_xuat = payload.nam_san_xuat === undefined || payload.nam_san_xuat === null || payload.nam_san_xuat === ''
+    ? null
+    : parseInt(payload.nam_san_xuat, 10);
+
+  if (!['xe_may', 'o_to_4_cho', 'o_to_7_cho'].includes(loai_xe)) {
+    throw new Error('loai_xe không hợp lệ');
+  }
+  if (!bien_so || !hang_xe || !mau_xe) {
+    throw new Error('Thiếu thông tin xe');
+  }
+  if (nam_san_xuat !== null) {
+    const year = new Date().getFullYear();
+    if (!Number.isInteger(nam_san_xuat) || nam_san_xuat < 1980 || nam_san_xuat > year) {
+      throw new Error(`nam_san_xuat phải từ 1980 đến ${year}`);
+    }
+  }
+
+  const driver = await repository.upsertDriverVehicle({
+    userId,
+    thanh_pho,
+    loai_xe,
+    bien_so,
+    hang_xe,
+    mau_xe,
+    nam_san_xuat,
+    dang_hoat_dong: payload.dang_hoat_dong !== false,
+  });
+
+  return {
+    success: true,
+    message: 'Lưu thông tin xe thành công',
+    data: {
+      id: driver.id,
+      ho_ten: driver.ho_ten,
+      is_available: driver.is_available === 1 || driver.is_available === true,
+      thanh_pho: driver.thanh_pho,
+      vehicle: {
+        id: driver.vehicle_id,
+        loai_xe: driver.loai_xe,
+        bien_so: driver.bien_so,
+        hang_xe: driver.hang_xe,
+        mau_xe: driver.mau_xe,
+        nam_san_xuat: driver.nam_san_xuat,
+        dang_hoat_dong: driver.dang_hoat_dong === 1 || driver.dang_hoat_dong === true,
+      }
     }
   };
 }
@@ -196,5 +297,8 @@ module.exports = {
   findNearestDrivers,
   getAvailableDriversList,
   updateAvailability,
-  getProfile
+  updateAvailabilityByUser,
+  getProfile,
+  getProfileByUser,
+  saveVehicle
 };

@@ -18,7 +18,7 @@ async function updateDriverLocation({ userId, latitude, longitude, thanh_pho }) 
       .input('kinh_do', longitude)
       .input('thanh_pho', thanh_pho)
       .query(`
-        UPDATE drivers 
+        UPDATE drivers
         SET vi_do_hien_tai = @vi_do, 
             kinh_do_hien_tai = @kinh_do
         WHERE ma_user = @ma_user AND thanh_pho = @thanh_pho
@@ -161,13 +161,37 @@ async function updateDriverAvailability(driverId, is_available, thanh_pho = 'HCM
       .input('driver_id', driverId)
       .input('is_available', is_available ? 1 : 0)
       .query(`
-        UPDATE drivers 
+        UPDATE drivers
         SET is_available = @is_available
         WHERE id = @driver_id
 
         SELECT id, ho_ten, is_available, thanh_pho
         FROM drivers
         WHERE id = @driver_id
+      `);
+
+    return result.recordset[0] || null;
+  } catch (error) {
+    throw new Error(`Lỗi cập nhật trạng thái: ${error.message}`);
+  }
+}
+
+async function updateDriverAvailabilityByUser(userId, is_available, thanh_pho = 'HCM') {
+  const pool = await getPrimaryConnection(thanh_pho);
+
+  try {
+    const result = await pool.request()
+      .input('ma_user', userId)
+      .input('is_available', is_available ? 1 : 0)
+      .input('thanh_pho', thanh_pho)
+      .query(`
+        UPDATE drivers
+        SET is_available = @is_available
+        WHERE ma_user = @ma_user AND thanh_pho = @thanh_pho
+
+        SELECT id, ho_ten, is_available, thanh_pho
+        FROM drivers
+        WHERE ma_user = @ma_user AND thanh_pho = @thanh_pho
       `);
 
     return result.recordset[0] || null;
@@ -202,12 +226,135 @@ async function getDriverProfile(driverId, thanh_pho = 'HCM') {
   }
 }
 
+async function getDriverProfileByUserId(userId, thanh_pho = 'HCM') {
+  const pool = await getReplicaConnection(thanh_pho);
+
+  try {
+    const result = await pool.request()
+      .input('ma_user', userId)
+      .input('thanh_pho', thanh_pho)
+      .query(`
+        SELECT d.id, d.ho_ten, d.so_dien_thoai, d.vi_do_hien_tai, d.kinh_do_hien_tai,
+               d.is_available, d.thanh_pho, d.tong_so_chuyen, d.ngay_tao,
+               u.email, u.vai_tro,
+               v.id as vehicle_id, v.loai_xe, v.bien_so, v.hang_xe, v.mau_xe, v.nam_san_xuat
+        FROM drivers d
+        LEFT JOIN users u ON d.ma_user = u.id
+        LEFT JOIN vehicles v ON d.id = v.ma_tai_xe AND v.dang_hoat_dong = 1
+        WHERE d.ma_user = @ma_user AND d.thanh_pho = @thanh_pho
+      `);
+
+    return result.recordset[0] || null;
+  } catch (error) {
+    throw new Error(`Lỗi lấy thông tin tài xế: ${error.message}`);
+  }
+}
+
+async function upsertDriverVehicle({
+  userId,
+  thanh_pho,
+  loai_xe,
+  bien_so,
+  hang_xe,
+  mau_xe,
+  nam_san_xuat,
+  dang_hoat_dong,
+}) {
+  const pool = await getPrimaryConnection(thanh_pho);
+
+  try {
+    const result = await pool.request()
+      .input('ma_user', userId)
+      .input('thanh_pho', thanh_pho)
+      .input('loai_xe', loai_xe)
+      .input('bien_so', bien_so)
+      .input('hang_xe', hang_xe)
+      .input('mau_xe', mau_xe)
+      .input('nam_san_xuat', nam_san_xuat || null)
+      .input('dang_hoat_dong', dang_hoat_dong ? 1 : 0)
+      .query(`
+        DECLARE @driverId UNIQUEIDENTIFIER;
+
+        SELECT @driverId = id
+        FROM drivers
+        WHERE ma_user = @ma_user AND thanh_pho = @thanh_pho;
+
+        IF @driverId IS NULL
+        BEGIN
+          INSERT INTO drivers (ma_user, ho_ten, so_dien_thoai, thanh_pho, is_available)
+          SELECT id, ho_ten, so_dien_thoai, thanh_pho, @dang_hoat_dong
+          FROM users
+          WHERE id = @ma_user AND thanh_pho = @thanh_pho AND vai_tro = 'driver';
+
+          SELECT @driverId = id
+          FROM drivers
+          WHERE ma_user = @ma_user AND thanh_pho = @thanh_pho;
+        END
+
+        IF @driverId IS NULL
+        BEGIN
+          THROW 50002, N'Tài khoản này chưa phải tài xế trong DB', 1;
+        END
+
+        IF EXISTS (SELECT 1 FROM vehicles WHERE ma_tai_xe = @driverId)
+        BEGIN
+          UPDATE vehicles
+          SET loai_xe = @loai_xe,
+              bien_so = @bien_so,
+              hang_xe = @hang_xe,
+              mau_xe = @mau_xe,
+              nam_san_xuat = @nam_san_xuat,
+              dang_hoat_dong = @dang_hoat_dong
+          WHERE ma_tai_xe = @driverId;
+        END
+        ELSE
+        BEGIN
+          INSERT INTO vehicles (
+            ma_tai_xe,
+            loai_xe,
+            bien_so,
+            hang_xe,
+            mau_xe,
+            nam_san_xuat,
+            dang_hoat_dong
+          )
+          VALUES (
+            @driverId,
+            @loai_xe,
+            @bien_so,
+            @hang_xe,
+            @mau_xe,
+            @nam_san_xuat,
+            @dang_hoat_dong
+          );
+        END
+
+        UPDATE drivers
+        SET is_available = @dang_hoat_dong
+        WHERE id = @driverId;
+
+        SELECT d.id, d.ho_ten, d.so_dien_thoai, d.is_available, d.thanh_pho,
+               v.id as vehicle_id, v.loai_xe, v.bien_so, v.hang_xe, v.mau_xe, v.nam_san_xuat, v.dang_hoat_dong
+        FROM drivers d
+        LEFT JOIN vehicles v ON v.ma_tai_xe = d.id
+        WHERE d.id = @driverId;
+      `);
+
+    return result.recordset[0] || null;
+  } catch (error) {
+    throw new Error(`Lỗi lưu thông tin xe: ${error.message}`);
+  }
+}
+
 module.exports = {
   updateDriverLocation,
   getDriverLocation,
   findNearestDrivers,
   getAvailableDrivers,
   updateDriverAvailability,
+  updateDriverAvailabilityByUser,
   getDriverProfile,
+  getDriverProfileByUserId,
+  upsertDriverVehicle,
   calculateDistance
 };

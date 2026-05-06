@@ -86,6 +86,19 @@ async function completeTrip(req, res) {
   }
 }
 
+async function saveRating(req, res) {
+  try {
+    const result = await service.saveRating(req.params.tripId, req.user, req.body);
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Lỗi lưu đánh giá',
+      error: error.message,
+    });
+  }
+}
+
 module.exports = {
   createTrip,
   getTripHistoryByUserId,
@@ -93,4 +106,5 @@ module.exports = {
   acceptTrip,
   rejectTrip,
   completeTrip,
+  saveRating,
 };

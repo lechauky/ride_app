@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
+import '../services/auth_store.dart';
 import 'driver_home_screen.dart';
 
 class VehicleInfoScreen extends StatefulWidget {
@@ -19,12 +21,53 @@ class _VehicleInfoScreenState extends State<VehicleInfoScreen> {
 
   String loaiXe = "xe_may";
   bool dangHoatDong = true;
+  bool isSaving = false;
 
   final loaiXeList = const [
     {"value": "xe_may", "label": "Xe máy", "icon": Icons.two_wheeler},
-    {"value": "o_to_4_cho", "label": "Ô tô 4 chỗ", "icon": Icons.directions_car},
-    {"value": "o_to_7_cho", "label": "Ô tô 7 chỗ", "icon": Icons.airport_shuttle},
+    {
+      "value": "o_to_4_cho",
+      "label": "Ô tô 4 chỗ",
+      "icon": Icons.directions_car,
+    },
+    {
+      "value": "o_to_7_cho",
+      "label": "Ô tô 7 chỗ",
+      "icon": Icons.airport_shuttle,
+    },
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchVehicle();
+  }
+
+  Future<void> _fetchVehicle() async {
+    final user = AuthStore.currentUser.value;
+    if (user == null) return;
+
+    try {
+      final res = await ApiService.get(
+        'drivers/me?thanh_pho=${user.thanhPho}',
+        user.thanhPho,
+      );
+      final data = res["data"];
+      final vehicle = data?["data"]?["vehicle"];
+      if (!mounted || data?["success"] != true || vehicle == null) return;
+
+      setState(() {
+        loaiXe = vehicle["loai_xe"]?.toString() ?? loaiXe;
+        bienSoCtl.text = vehicle["bien_so"]?.toString() ?? "";
+        hangXeCtl.text = vehicle["hang_xe"]?.toString() ?? "";
+        mauXeCtl.text = vehicle["mau_xe"]?.toString() ?? "";
+        namSXCtl.text = vehicle["nam_san_xuat"]?.toString() ?? "";
+        dangHoatDong = data["data"]?["is_available"] == true;
+      });
+    } catch (_) {
+      // Không có hồ sơ xe thì màn này vẫn cho nhập mới.
+    }
+  }
 
   @override
   void dispose() {
@@ -35,14 +78,44 @@ class _VehicleInfoScreenState extends State<VehicleInfoScreen> {
     super.dispose();
   }
 
-  void _save() {
+  Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final user = AuthStore.currentUser.value;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Vui lòng đăng nhập tài xế trước")),
+      );
+      return;
+    }
+
+    setState(() => isSaving = true);
+    final res = await ApiService.post("drivers/vehicle", user.thanhPho, {
+      "thanh_pho": user.thanhPho,
+      "loai_xe": loaiXe,
+      "bien_so": bienSoCtl.text.trim(),
+      "hang_xe": hangXeCtl.text.trim(),
+      "mau_xe": mauXeCtl.text.trim(),
+      "nam_san_xuat": int.tryParse(namSXCtl.text.trim()),
+      "dang_hoat_dong": dangHoatDong,
+    });
+
+    if (!mounted) return;
+    setState(() => isSaving = false);
+
+    if (res["data"] == null || res["data"]["success"] != true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(res["data"]?["message"] ?? "Lỗi lưu thông tin xe"),
+        ),
+      );
+      return;
+    }
 
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         title: Row(
           children: const [
             Icon(Icons.check_circle, color: Colors.green, size: 26),
@@ -51,7 +124,8 @@ class _VehicleInfoScreenState extends State<VehicleInfoScreen> {
           ],
         ),
         content: Text(
-            "Đã thêm phương tiện ${bienSoCtl.text.toUpperCase()} vào hồ sơ tài xế."),
+          "Đã thêm phương tiện ${bienSoCtl.text.toUpperCase()} vào hồ sơ tài xế.",
+        ),
         actions: [
           TextButton(
             onPressed: () {
@@ -59,8 +133,7 @@ class _VehicleInfoScreenState extends State<VehicleInfoScreen> {
               if (widget.fromRegister) {
                 Navigator.pushAndRemoveUntil(
                   context,
-                  MaterialPageRoute(
-                      builder: (_) => const DriverHomeScreen()),
+                  MaterialPageRoute(builder: (_) => const DriverHomeScreen()),
                   (r) => false,
                 );
               } else {
@@ -68,7 +141,7 @@ class _VehicleInfoScreenState extends State<VehicleInfoScreen> {
               }
             },
             child: const Text("OK"),
-          )
+          ),
         ],
       ),
     );
@@ -98,8 +171,7 @@ class _VehicleInfoScreenState extends State<VehicleInfoScreen> {
                 ),
                 child: Row(
                   children: const [
-                    Icon(Icons.info_outline,
-                        color: Colors.deepPurple),
+                    Icon(Icons.info_outline, color: Colors.deepPurple),
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -113,9 +185,10 @@ class _VehicleInfoScreenState extends State<VehicleInfoScreen> {
               const SizedBox(height: 20),
 
               // Loại xe
-              const Text("Loại xe",
-                  style: TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w600)),
+              const Text(
+                "Loại xe",
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+              ),
               const SizedBox(height: 8),
               Row(
                 children: loaiXeList.map((opt) {
@@ -142,18 +215,16 @@ class _VehicleInfoScreenState extends State<VehicleInfoScreen> {
                           ),
                           child: Column(
                             children: [
-                              Icon(opt["icon"] as IconData,
-                                  color: isSel
-                                      ? Colors.white
-                                      : Colors.deepPurple),
+                              Icon(
+                                opt["icon"] as IconData,
+                                color: isSel ? Colors.white : Colors.deepPurple,
+                              ),
                               const SizedBox(height: 4),
                               Text(
                                 opt["label"] as String,
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: isSel
-                                      ? Colors.white
-                                      : Colors.black87,
+                                  color: isSel ? Colors.white : Colors.black87,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -167,60 +238,83 @@ class _VehicleInfoScreenState extends State<VehicleInfoScreen> {
               ),
               const SizedBox(height: 18),
 
-              _input(bienSoCtl, "Biển số xe", Icons.confirmation_number,
-                  hint: "VD: 59X1-234.56", validator: (v) {
-                if (v == null || v.trim().isEmpty) return "Bắt buộc nhập";
-                if (v.trim().length < 5) return "Biển số không hợp lệ";
-                return null;
-              }),
+              _input(
+                bienSoCtl,
+                "Biển số xe",
+                Icons.confirmation_number,
+                hint: "VD: 59X1-234.56",
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return "Bắt buộc nhập";
+                  if (v.trim().length < 5) return "Biển số không hợp lệ";
+                  return null;
+                },
+              ),
               const SizedBox(height: 12),
-              _input(hangXeCtl, "Hãng xe", Icons.business,
-                  hint: "VD: Honda, Toyota, Yamaha",
-                  validator: (v) =>
-                      v == null || v.trim().isEmpty ? "Bắt buộc nhập" : null),
+              _input(
+                hangXeCtl,
+                "Hãng xe",
+                Icons.business,
+                hint: "VD: Honda, Toyota, Yamaha",
+                validator: (v) =>
+                    v == null || v.trim().isEmpty ? "Bắt buộc nhập" : null,
+              ),
               const SizedBox(height: 12),
-              _input(mauXeCtl, "Màu xe", Icons.color_lens,
-                  hint: "VD: Đen, Trắng, Đỏ",
-                  validator: (v) =>
-                      v == null || v.trim().isEmpty ? "Bắt buộc nhập" : null),
+              _input(
+                mauXeCtl,
+                "Màu xe",
+                Icons.color_lens,
+                hint: "VD: Đen, Trắng, Đỏ",
+                validator: (v) =>
+                    v == null || v.trim().isEmpty ? "Bắt buộc nhập" : null,
+              ),
               const SizedBox(height: 12),
-              _input(namSXCtl, "Năm sản xuất", Icons.calendar_today,
-                  keyboardType: TextInputType.number,
-                  hint: "VD: 2022", validator: (v) {
-                if (v == null || v.trim().isEmpty) return "Bắt buộc nhập";
-                final n = int.tryParse(v);
-                if (n == null) return "Phải là số";
-                final cur = DateTime.now().year;
-                if (n < 1980 || n > cur) {
-                  return "Năm phải từ 1980 đến $cur";
-                }
-                return null;
-              }),
+              _input(
+                namSXCtl,
+                "Năm sản xuất",
+                Icons.calendar_today,
+                keyboardType: TextInputType.number,
+                hint: "VD: 2022",
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return "Bắt buộc nhập";
+                  final n = int.tryParse(v);
+                  if (n == null) return "Phải là số";
+                  final cur = DateTime.now().year;
+                  if (n < 1980 || n > cur) {
+                    return "Năm phải từ 1980 đến $cur";
+                  }
+                  return null;
+                },
+              ),
               const SizedBox(height: 12),
 
               SwitchListTile(
                 value: dangHoatDong,
                 onChanged: (v) => setState(() => dangHoatDong = v),
-                title: const Text("Đang sử dụng",
-                    style: TextStyle(fontWeight: FontWeight.w500)),
-                subtitle: Text(dangHoatDong
-                    ? "Xe sẵn sàng nhận chuyến"
-                    : "Tạm dừng — không nhận chuyến"),
+                title: const Text(
+                  "Đang sử dụng",
+                  style: TextStyle(fontWeight: FontWeight.w500),
+                ),
+                subtitle: Text(
+                  dangHoatDong
+                      ? "Xe sẵn sàng nhận chuyến"
+                      : "Tạm dừng — không nhận chuyến",
+                ),
                 activeThumbColor: Colors.deepPurple,
                 contentPadding: EdgeInsets.zero,
               ),
 
               const SizedBox(height: 16),
               ElevatedButton.icon(
-                onPressed: _save,
+                onPressed: isSaving ? null : _save,
                 icon: const Icon(Icons.save),
-                label: const Text("Lưu phương tiện"),
+                label: Text(isSaving ? "Đang lưu..." : "Lưu phương tiện"),
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 52),
                   backgroundColor: Colors.deepPurple,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
               ),
             ],
@@ -230,10 +324,14 @@ class _VehicleInfoScreenState extends State<VehicleInfoScreen> {
     );
   }
 
-  Widget _input(TextEditingController c, String label, IconData icon,
-      {String? hint,
-      TextInputType? keyboardType,
-      String? Function(String?)? validator}) {
+  Widget _input(
+    TextEditingController c,
+    String label,
+    IconData icon, {
+    String? hint,
+    TextInputType? keyboardType,
+    String? Function(String?)? validator,
+  }) {
     return TextFormField(
       controller: c,
       keyboardType: keyboardType,
@@ -242,8 +340,7 @@ class _VehicleInfoScreenState extends State<VehicleInfoScreen> {
         labelText: label,
         hintText: hint,
         prefixIcon: Icon(icon),
-        border:
-            OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
       ),
     );
   }
