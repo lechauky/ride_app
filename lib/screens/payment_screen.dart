@@ -17,6 +17,7 @@ class PaymentMethod {
 class PaymentScreen extends StatefulWidget {
   final int tongTien;
   final String tenLoaiXe;
+  final String maLoaiDichVu;
   final double khoangCachKm;
   final String? diaChiDon;
   final String? diaChiDen;
@@ -27,6 +28,7 @@ class PaymentScreen extends StatefulWidget {
     super.key,
     required this.tongTien,
     required this.tenLoaiXe,
+    required this.maLoaiDichVu,
     this.khoangCachKm = 5.0,
     this.diaChiDon,
     this.diaChiDen,
@@ -40,12 +42,27 @@ class PaymentScreen extends StatefulWidget {
 
 class _PaymentScreenState extends State<PaymentScreen> {
   final methods = [
-    PaymentMethod("tien_mat", "Tiền mặt", Icons.payments, Colors.green,
-        "Thanh toán khi kết thúc chuyến"),
-    PaymentMethod("vi_dien_tu", "Ví điện tử", Icons.account_balance_wallet,
-        Colors.orange, "Momo / ZaloPay / VNPay"),
-    PaymentMethod("the_ngan_hang", "Thẻ ngân hàng", Icons.credit_card,
-        Colors.blue, "Visa / MasterCard / ATM nội địa"),
+    PaymentMethod(
+      "tien_mat",
+      "Tiền mặt",
+      Icons.payments,
+      Colors.green,
+      "Thanh toán khi kết thúc chuyến",
+    ),
+    PaymentMethod(
+      "vi_dien_tu",
+      "Ví điện tử",
+      Icons.account_balance_wallet,
+      Colors.orange,
+      "Momo / ZaloPay / VNPay",
+    ),
+    PaymentMethod(
+      "the_ngan_hang",
+      "Thẻ ngân hàng",
+      Icons.credit_card,
+      Colors.blue,
+      "Visa / MasterCard / ATM nội địa",
+    ),
   ];
 
   int selected = 0;
@@ -61,10 +78,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
     return "${buf.toString()}₫";
   }
 
-  /// Khởi tạo trip giả lập sau khi thanh toán thành công
-  PassengerTripInfo _createTrip() {
+  /// Khởi tạo thông tin chuyến hiển thị sau khi DB tạo chuyến thành công.
+  PassengerTripInfo _createTrip(Map<String, dynamic>? dbTrip) {
     final maChuyen =
-        "${DateTime.now().millisecondsSinceEpoch % 1000000}";
+        (dbTrip?["id"] ??
+                dbTrip?["ma_chuyen_di"] ??
+                "${DateTime.now().millisecondsSinceEpoch % 1000000}")
+            .toString();
     return PassengerTripInfo(
       maChuyenDi: maChuyen,
       tenTaiXe: "Nguyễn Văn A",
@@ -91,11 +111,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   Future<void> _confirmPayment() async {
     setState(() => isProcessing = true);
-    
+
     try {
       final city = AuthStore.currentUser.value?.thanhPho ?? "HCM";
+      final paymentStatus = methods[selected].id == "tien_mat"
+          ? "cho_thanh_toan"
+          : "da_thanh_toan";
       final res = await ApiService.post('trips', city, {
-        "ma_loai_dich_vu": widget.tenLoaiXe.toLowerCase().contains("máy") ? "xe_may" : "o_to",
+        "ma_loai_dich_vu": widget.maLoaiDichVu,
         "thanh_pho": city,
         "vi_do_diem_don": widget.diemDon?.latitude ?? 10.0,
         "kinh_do_diem_don": widget.diemDon?.longitude ?? 106.0,
@@ -104,6 +127,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
         "dia_chi_diem_don": widget.diaChiDon ?? "Vị trí đón hiện tại",
         "dia_chi_diem_den": widget.diaChiDen ?? "Điểm đến đã chọn",
         "khoang_cach_km": widget.khoangCachKm,
+        "so_tien": widget.tongTien,
+        "phuong_thuc": methods[selected].id,
+        "trang_thai_thanh_toan": paymentStatus,
       });
 
       if (!mounted) return;
@@ -115,7 +141,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
           barrierDismissible: false,
           builder: (_) => AlertDialog(
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18)),
+              borderRadius: BorderRadius.circular(18),
+            ),
             title: Row(
               children: const [
                 Icon(Icons.check_circle, color: Colors.green, size: 28),
@@ -128,18 +155,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                    "Bạn đã thanh toán ${_formatVND(widget.tongTien)} bằng ${methods[selected].ten}."),
+                  "Bạn đã thanh toán ${_formatVND(widget.tongTien)} bằng ${methods[selected].ten}.",
+                ),
                 const SizedBox(height: 6),
                 Text(
                   "Mã giao dịch: #${res["data"]["data"]?["id"] ?? DateTime.now().millisecondsSinceEpoch}",
-                  style: const TextStyle(
-                      fontSize: 12, color: Colors.black54),
+                  style: const TextStyle(fontSize: 12, color: Colors.black54),
                 ),
                 const SizedBox(height: 12),
                 const Text(
                   "Hệ thống đang tìm tài xế cho bạn…",
-                  style: TextStyle(
-                      fontSize: 13, fontStyle: FontStyle.italic),
+                  style: TextStyle(fontSize: 13, fontStyle: FontStyle.italic),
                 ),
               ],
             ),
@@ -153,13 +179,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   Navigator.pop(context); // đóng dialog
 
                   // Lưu chuyến vào store và mở màn thông tin tài xế
-                  final trip = _createTrip();
+                  final trip = _createTrip(res["data"]["data"]);
                   ActiveTripStore.startTrip(trip);
 
                   Navigator.pushAndRemoveUntil(
                     context,
                     MaterialPageRoute(
-                        builder: (_) => const PassengerTripScreen()),
+                      builder: (_) => const PassengerTripScreen(),
+                    ),
                     (r) => false,
                   );
                 },
@@ -175,9 +202,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
       }
     } catch (e) {
       if (mounted) setState(() => isProcessing = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Lỗi mạng: $e")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Lỗi mạng: $e")));
     }
   }
 
@@ -197,10 +224,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [
-                  Colors.deepPurple,
-                  Colors.deepPurple.shade400,
-                ],
+                colors: [Colors.deepPurple, Colors.deepPurple.shade400],
               ),
               borderRadius: BorderRadius.circular(16),
             ),
@@ -215,15 +239,19 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 Text(
                   _formatVND(widget.tongTien),
                   style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold),
+                    color: Colors.white,
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    const Icon(Icons.directions_car,
-                        color: Colors.white70, size: 18),
+                    const Icon(
+                      Icons.directions_car,
+                      color: Colors.white70,
+                      size: 18,
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       widget.tenLoaiXe,
@@ -242,8 +270,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
               alignment: Alignment.centerLeft,
               child: const Text(
                 "Chọn phương thức thanh toán",
-                style:
-                    TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
             ),
           ),
@@ -262,10 +289,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     margin: const EdgeInsets.only(bottom: 10),
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: isSel ? m.color.withValues(alpha: 0.1) : Colors.white,
+                      color: isSel
+                          ? m.color.withValues(alpha: 0.1)
+                          : Colors.white,
                       border: Border.all(
-                          color: isSel ? m.color : Colors.grey.shade300,
-                          width: isSel ? 2 : 1),
+                        color: isSel ? m.color : Colors.grey.shade300,
+                        width: isSel ? 2 : 1,
+                      ),
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Row(
@@ -287,15 +317,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
                               Text(
                                 m.ten,
                                 style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600),
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                               const SizedBox(height: 2),
                               Text(
                                 m.moTa,
                                 style: const TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.black54),
+                                  fontSize: 13,
+                                  color: Colors.black54,
+                                ),
                               ),
                             ],
                           ),
@@ -304,8 +336,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           value: i,
                           groupValue: selected,
                           activeColor: m.color,
-                          onChanged: (v) =>
-                              setState(() => selected = v ?? 0),
+                          onChanged: (v) => setState(() => selected = v ?? 0),
                         ),
                       ],
                     ),
@@ -322,9 +353,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 6,
-                    offset: const Offset(0, -2)),
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 6,
+                  offset: const Offset(0, -2),
+                ),
               ],
             ),
             child: ElevatedButton(
@@ -334,21 +366,24 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 backgroundColor: Colors.deepPurple,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
               child: isProcessing
                   ? const SizedBox(
                       width: 22,
                       height: 22,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : Text(
                       "Xác nhận thanh toán (${_formatVND(widget.tongTien)})",
                       style: const TextStyle(fontSize: 15),
                     ),
             ),
-          )
+          ),
         ],
       ),
     );

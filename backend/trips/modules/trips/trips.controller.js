@@ -34,4 +34,63 @@ async function getTripHistoryByUserId(req, res) {
   }
 }
 
-module.exports = { createTrip, getTripHistoryByUserId };
+async function getNearestPendingTrips(req, res) {
+  try {
+    const result = await service.getNearestPendingTrips(req.query, req.user);
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Lỗi lấy chuyến đang chờ',
+      error: error.message,
+    });
+  }
+}
+
+async function acceptTrip(req, res) {
+  try {
+    const result = await service.acceptTrip(req.params.tripId, req.user, req.body);
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Lỗi nhận chuyến',
+      error: error.message,
+    });
+  }
+}
+
+async function rejectTrip(req, res) {
+  try {
+    const result = await service.rejectTrip(req.params.tripId, req.user, req.body);
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Lỗi từ chối chuyến',
+      error: error.message,
+    });
+  }
+}
+
+async function completeTrip(req, res) {
+  try {
+    const result = await service.completeTrip(req.params.tripId, req.user, req.body);
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Lỗi hoàn thành chuyến',
+      error: error.message,
+    });
+  }
+}
+
+module.exports = {
+  createTrip,
+  getTripHistoryByUserId,
+  getNearestPendingTrips,
+  acceptTrip,
+  rejectTrip,
+  completeTrip,
+};
