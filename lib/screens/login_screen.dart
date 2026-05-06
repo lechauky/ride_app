@@ -45,7 +45,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (data["success"] == true) {
         final userData = data["data"];
         final dbRole = userData["vai_tro"]?.toString() == "driver" ? 1 : 0;
-        AuthStore.login(
+        await AuthStore.login(
           UserInfo(
             id: userData["id"].toString(),
             email: userData["email"].toString(),

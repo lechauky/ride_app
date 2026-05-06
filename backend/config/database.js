@@ -54,7 +54,16 @@ function wrapPool(pool) {
         error.code = 'READ_ONLY_MODE';
         throw error;
       }
-      return originalQuery(queryText, ...rest);
+      try {
+        return await originalQuery(queryText, ...rest);
+      } catch (err) {
+        if (err.code === 'ESOCKET' || err.code === 'ECONNCLOSED' || err.code === 'ETIMEOUT' || err.code === 'ELOGIN' || (err.message && err.message.toLowerCase().includes('connect'))) {
+          if (pool.__configName && poolCache[pool.__configName]) {
+             delete poolCache[pool.__configName];
+          }
+        }
+        throw err;
+      }
     };
 
     return request;
@@ -105,6 +114,7 @@ async function getPool(configName, role = 'primary') {
   await pool.connect();
   pool.__dbRole = role;
   pool.__readOnly = role === 'replica';
+  pool.__configName = configName;
   poolCache[configName] = pool;
   return wrapPool(pool);
 }
