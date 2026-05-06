@@ -34,11 +34,8 @@ Mật khẩu chung cho TẤT CẢ tài khoản (Khách & Tài xế): 123456
    docker-compose up -d
 
 2. Bật các Backend API: 
-   Mở terminal ở thư mục /backend và chạy các lệnh:
-   node user-auth/server.js
-   $env:PORT=5002; node user-auth/server.js
-   $env:PORT=6001; node user-auth/server.js
-   $env:PORT=6002; node user-auth/server.js
+   Mở terminal ở thư mục /backend và chạy lệnh:
+   node start_all.js
 
 3. Chạy App: 
    Mở terminal ở thư mục /ride_app:

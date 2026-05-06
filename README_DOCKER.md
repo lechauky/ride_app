@@ -45,7 +45,6 @@ node database/seed-all.js
 Sau khi chạy xong, hệ thống sẽ tự động có sẵn hàng trăm dòng dữ liệu thực tế cho bạn test.
 
 ## 5. Cách tắt
-
 ```bash
 # Tắt nhưng giữ dữ liệu 
 docker-compose down
