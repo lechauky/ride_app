@@ -171,6 +171,10 @@ function validateRatingPayload(tripId, user, body) {
     errors.push('loai_nguoi_danh_gia chỉ được là user hoặc driver');
   }
 
+  if (user?.vai_tro && user.vai_tro !== loai_nguoi_danh_gia) {
+    errors.push('loai_nguoi_danh_gia phải khớp vai_tro trong token');
+  }
+
   return {
     valid: errors.length === 0,
     errors,

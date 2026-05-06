@@ -3,7 +3,7 @@ const cors = require('cors');
 const userAuthRoutes = require('./modules/user-auth');
 
 // Mount thêm routes từ các service khác để chạy chung 1 port
-let tripsRoutes, driverAuthRoutes;
+let tripsRoutes, driverAuthRoutes, notificationsRoutes;
 try {
   tripsRoutes = require('../trips/modules/trips');
 } catch (e) {
@@ -13,6 +13,11 @@ try {
   driverAuthRoutes = require('../driver-auth/modules/driver-auth/driver-auth.routes');
 } catch (e) {
   console.warn('Driver-auth routes not found, skipping...');
+}
+try {
+  notificationsRoutes = require('../notifications/modules/notifications');
+} catch (e) {
+  console.warn('Notifications routes not found, skipping...');
 }
 
 function createApp() {
@@ -33,6 +38,10 @@ function createApp() {
 
   if (driverAuthRoutes) {
     app.use('/api/drivers', driverAuthRoutes);
+  }
+
+  if (notificationsRoutes) {
+    app.use('/api/notifications', notificationsRoutes);
   }
 
   return app;

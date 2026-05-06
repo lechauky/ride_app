@@ -37,7 +37,7 @@ async function updateLocation(locationData) {
       ho_ten: driver.ho_ten,
       vi_do: driver.vi_do_hien_tai,
       kinh_do: driver.kinh_do_hien_tai,
-      is_available: driver.is_available === 1,
+      is_available: driver.is_available === 1 || driver.is_available === true,
       thanh_pho: driver.thanh_pho
     }
   };
@@ -54,7 +54,7 @@ async function findNearestDrivers(searchData) {
     limit = 5
   } = searchData;
 
-  if (!latitude || !longitude || !thanh_pho) {
+  if (latitude === undefined || latitude === null || longitude === undefined || longitude === null || !thanh_pho) {
     throw new Error('Thiếu thông tin tìm kiếm: latitude, longitude, thanh_pho');
   }
 
@@ -84,7 +84,7 @@ async function findNearestDrivers(searchData) {
       so_dien_thoai: driver.so_dien_thoai,
       vi_do: driver.vi_do_hien_tai,
       kinh_do: driver.kinh_do_hien_tai,
-      is_available: driver.is_available === 1,
+      is_available: driver.is_available === 1 || driver.is_available === true,
       thanh_pho: driver.thanh_pho,
       distance: driver.distance.toFixed(2), // km
       tong_so_chuyen: driver.tong_so_chuyen,
@@ -115,7 +115,7 @@ async function getAvailableDriversList(thanh_pho) {
       so_dien_thoai: driver.so_dien_thoai,
       vi_do: driver.vi_do_hien_tai,
       kinh_do: driver.kinh_do_hien_tai,
-      is_available: driver.is_available === 1,
+      is_available: driver.is_available === 1 || driver.is_available === true,
       thanh_pho: driver.thanh_pho,
       tong_so_chuyen: driver.tong_so_chuyen,
       vehicle: driver.vehicle_id ? {
@@ -147,7 +147,7 @@ async function updateAvailability(driverId, is_available, thanh_pho = 'HCM') {
     data: {
       id: driver.id,
       ho_ten: driver.ho_ten,
-      is_available: driver.is_available === 1,
+      is_available: driver.is_available === 1 || driver.is_available === true,
       thanh_pho: driver.thanh_pho
     }
   };
@@ -203,7 +203,7 @@ function mapProfile(driver) {
       vai_tro: driver.vai_tro,
       vi_do: driver.vi_do_hien_tai,
       kinh_do: driver.kinh_do_hien_tai,
-      is_available: driver.is_available === 1,
+      is_available: driver.is_available === 1 || driver.is_available === true,
       thanh_pho: driver.thanh_pho,
       tong_so_chuyen: driver.tong_so_chuyen,
       ngay_tao: driver.ngay_tao,

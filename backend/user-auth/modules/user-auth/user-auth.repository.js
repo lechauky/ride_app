@@ -64,4 +64,19 @@ async function getUserById(id, thanh_pho = 'HCM') {
   return result.recordset[0] || null;
 }
 
-module.exports = { findUserByEmail, findUserByEmailPrimary, createUser, getUserById };
+async function getUserByIdPrimary(id, thanh_pho = 'HCM') {
+  const pool = await getPrimaryConnection(thanh_pho);
+  const result = await pool.request()
+    .input('id', id)
+    .query('SELECT id, ho_ten, email, so_dien_thoai, thanh_pho, vai_tro, ngay_tao FROM users WHERE id = @id');
+
+  return result.recordset[0] || null;
+}
+
+module.exports = {
+  findUserByEmail,
+  findUserByEmailPrimary,
+  createUser,
+  getUserById,
+  getUserByIdPrimary,
+};

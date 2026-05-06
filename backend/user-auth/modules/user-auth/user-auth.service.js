@@ -8,6 +8,28 @@ const jwt = require('jsonwebtoken');
 const repository = require('./user-auth.repository');
 const { validateRegisterPayload, validateLoginPayload } = require('./user-auth.validator');
 
+async function findUserByEmailWithFallback(email, city) {
+  try {
+    const replicaUser = await repository.findUserByEmail(email, city);
+    if (replicaUser) return replicaUser;
+  } catch (_) {
+    // Local demo may run without real replication; fall back to Primary.
+  }
+
+  return await repository.findUserByEmailPrimary(email, city);
+}
+
+async function getUserByIdWithFallback(userId, city) {
+  try {
+    const replicaUser = await repository.getUserById(userId, city);
+    if (replicaUser) return replicaUser;
+  } catch (_) {
+    // Local demo may run without real replication; fall back to Primary.
+  }
+
+  return await repository.getUserByIdPrimary(userId, city);
+}
+
 async function register(payload) {
   const validation = validateRegisterPayload(payload);
   if (!validation.valid) {
@@ -19,8 +41,9 @@ async function register(payload) {
   const role = validation.normalized.vai_tro || 'user';
 
   // Kiểm tra email đã tồn tại chưa (SELECT → Replica)
-  const existing = await repository.findUserByEmail(email, city)
-    || await repository.findUserByEmailPrimary(email, city);
+  const normalizedEmail = String(email).trim().toLowerCase();
+  const existing = await findUserByEmailWithFallback(normalizedEmail, city)
+    || await findUserByEmailWithFallback(normalizedEmail, city === 'HCM' ? 'HN' : 'HCM');
   if (existing) {
     return { status: 409, body: { success: false, message: 'Email đã tồn tại' } };
   }
@@ -29,7 +52,7 @@ async function register(payload) {
   const hashedPassword = await bcrypt.hash(mat_khau, 10);
   const user = await repository.createUser({
     ho_ten: String(ho_ten).trim(),
-    email: String(email).trim().toLowerCase(),
+    email: normalizedEmail,
     mat_khau: hashedPassword,
     so_dien_thoai: so_dien_thoai ? String(so_dien_thoai).trim() : null,
     thanh_pho: city,
@@ -62,12 +85,11 @@ async function login(payload) {
   const { email, mat_khau, thanh_pho } = payload;
 
   // Tự động tìm user trên cả 2 DB nếu không truyền thanh_pho
-  let user = await repository.findUserByEmail(String(email).trim().toLowerCase(), thanh_pho || 'HCM')
-    || await repository.findUserByEmailPrimary(String(email).trim().toLowerCase(), thanh_pho || 'HCM');
+  const normalizedEmail = String(email).trim().toLowerCase();
+  let user = await findUserByEmailWithFallback(normalizedEmail, thanh_pho || 'HCM');
   
   if (!user && !thanh_pho) {
-    user = await repository.findUserByEmail(String(email).trim().toLowerCase(), 'HN')
-      || await repository.findUserByEmailPrimary(String(email).trim().toLowerCase(), 'HN');
+    user = await findUserByEmailWithFallback(normalizedEmail, 'HN');
   }
 
   if (!user) {
@@ -106,7 +128,7 @@ async function login(payload) {
 
 async function me(userId, thanh_pho = 'HCM') {
   // Lấy thông tin user (SELECT → Replica)
-  const user = await repository.getUserById(userId, thanh_pho);
+  const user = await getUserByIdWithFallback(userId, thanh_pho);
   if (!user) {
     return { status: 404, body: { success: false, message: 'Không tìm thấy người dùng' } };
   }

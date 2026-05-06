@@ -11,6 +11,7 @@ function mapActionError(error) {
   if (error.code === 'DRIVER_NOT_FOUND') return 404;
   if (error.code === 'TRIP_NOT_FOUND') return 404;
   if (error.code === 'TRIP_NOT_AVAILABLE') return 409;
+  if (error.code === 'VEHICLE_TYPE_MISMATCH') return 409;
   return 500;
 }
 

@@ -5,6 +5,26 @@
 // ===========================================
 const { getPrimaryConnection, getReplicaConnection } = require('../../../config/database');
 
+async function readPrimaryThenReplica(thanh_pho, runQuery) {
+  try {
+    const primaryPool = await getPrimaryConnection(thanh_pho);
+    const primaryResult = await runQuery(primaryPool);
+    if (primaryResult.recordset.length > 0) return primaryResult;
+  } catch (_) {
+    // If Primary is down, fall back to Replica for read-only demo screens.
+  }
+
+  const replicaPool = await getReplicaConnection(thanh_pho);
+  return await runQuery(replicaPool);
+}
+
+function mapRideTypeToVehicleType(rideType) {
+  if (rideType === 'bike') return 'xe_may';
+  if (rideType === 'car4') return 'o_to_4_cho';
+  if (rideType === 'car7') return 'o_to_7_cho';
+  return null;
+}
+
 /**
  * Cập nhật vị trí tài xế (UPDATE → Primary)
  */
@@ -39,17 +59,17 @@ async function updateDriverLocation({ userId, latitude, longitude, thanh_pho }) 
  * Lấy vị trí hiện tại của tài xế (SELECT → Replica để giảm tải)
  */
 async function getDriverLocation(driverId, thanh_pho = 'HCM') {
-  const pool = await getReplicaConnection(thanh_pho);
-
   try {
-    const result = await pool.request()
-      .input('driver_id', driverId)
-      .query(`
-        SELECT id, ho_ten, so_dien_thoai, vi_do_hien_tai, kinh_do_hien_tai, 
-               is_available, thanh_pho, tong_so_chuyen
-        FROM drivers
-        WHERE id = @driver_id
-      `);
+    const result = await readPrimaryThenReplica(thanh_pho, (pool) =>
+      pool.request()
+        .input('driver_id', driverId)
+        .query(`
+          SELECT id, ho_ten, so_dien_thoai, vi_do_hien_tai, kinh_do_hien_tai,
+                 is_available, thanh_pho, tong_so_chuyen
+          FROM drivers
+          WHERE id = @driver_id
+        `)
+    );
 
     return result.recordset[0] || null;
   } catch (error) {
@@ -85,24 +105,28 @@ async function findNearestDrivers({
   max_distance = 5, // km
   limit = 5 
 }) {
-  const pool = await getReplicaConnection(thanh_pho);
+  const vehicleType = mapRideTypeToVehicleType(loai_dich_vu);
 
   try {
     // Lấy danh sách tài xế khả dụng trong thành phố
-    const result = await pool.request()
-      .input('thanh_pho', thanh_pho)
-      .query(`
-        SELECT d.id, d.ho_ten, d.so_dien_thoai, d.vi_do_hien_tai, d.kinh_do_hien_tai,
-               d.is_available, d.thanh_pho, d.tong_so_chuyen,
-               v.loai_xe, v.bien_so, v.hang_xe, v.mau_xe
-        FROM drivers d
-        LEFT JOIN vehicles v ON d.id = v.ma_tai_xe
-        WHERE d.thanh_pho = @thanh_pho 
-          AND d.is_available = 1
-          AND d.vi_do_hien_tai IS NOT NULL 
-          AND d.kinh_do_hien_tai IS NOT NULL
-        ORDER BY d.tong_so_chuyen ASC
-      `);
+    const result = await readPrimaryThenReplica(thanh_pho, (pool) =>
+      pool.request()
+        .input('thanh_pho', thanh_pho)
+        .input('vehicle_type', vehicleType)
+        .query(`
+          SELECT d.id, d.ho_ten, d.so_dien_thoai, d.vi_do_hien_tai, d.kinh_do_hien_tai,
+                 d.is_available, d.thanh_pho, d.tong_so_chuyen,
+                 v.loai_xe, v.bien_so, v.hang_xe, v.mau_xe
+          FROM drivers d
+          LEFT JOIN vehicles v ON d.id = v.ma_tai_xe AND v.dang_hoat_dong = 1
+          WHERE d.thanh_pho = @thanh_pho
+            AND d.is_available = 1
+            AND d.vi_do_hien_tai IS NOT NULL
+            AND d.kinh_do_hien_tai IS NOT NULL
+            AND (@vehicle_type IS NULL OR v.loai_xe = @vehicle_type)
+          ORDER BY d.tong_so_chuyen ASC
+        `)
+    );
 
     // Tính khoảng cách và lọc những tài xế gần nhất
     const driversWithDistance = result.recordset
@@ -129,20 +153,20 @@ async function findNearestDrivers({
  * Lấy danh sách tài xế khả dụng theo thành phố (SELECT → Replica)
  */
 async function getAvailableDrivers(thanh_pho) {
-  const pool = await getReplicaConnection(thanh_pho);
-
   try {
-    const result = await pool.request()
-      .input('thanh_pho', thanh_pho)
-      .query(`
-        SELECT d.id, d.ho_ten, d.so_dien_thoai, d.vi_do_hien_tai, d.kinh_do_hien_tai,
-               d.is_available, d.thanh_pho, d.tong_so_chuyen,
-               v.id as vehicle_id, v.loai_xe, v.bien_so, v.hang_xe, v.mau_xe
-        FROM drivers d
-        LEFT JOIN vehicles v ON d.id = v.ma_tai_xe
-        WHERE d.thanh_pho = @thanh_pho AND d.is_available = 1
-        ORDER BY d.tong_so_chuyen ASC
-      `);
+    const result = await readPrimaryThenReplica(thanh_pho, (pool) =>
+      pool.request()
+        .input('thanh_pho', thanh_pho)
+        .query(`
+          SELECT d.id, d.ho_ten, d.so_dien_thoai, d.vi_do_hien_tai, d.kinh_do_hien_tai,
+                 d.is_available, d.thanh_pho, d.tong_so_chuyen,
+                 v.id as vehicle_id, v.loai_xe, v.bien_so, v.hang_xe, v.mau_xe
+          FROM drivers d
+          LEFT JOIN vehicles v ON d.id = v.ma_tai_xe AND v.dang_hoat_dong = 1
+          WHERE d.thanh_pho = @thanh_pho AND d.is_available = 1
+          ORDER BY d.tong_so_chuyen ASC
+        `)
+    );
 
     return result.recordset;
   } catch (error) {
@@ -204,21 +228,21 @@ async function updateDriverAvailabilityByUser(userId, is_available, thanh_pho = 
  * Lấy thông tin chi tiết tài xế (SELECT → Replica)
  */
 async function getDriverProfile(driverId, thanh_pho = 'HCM') {
-  const pool = await getReplicaConnection(thanh_pho);
-
   try {
-    const result = await pool.request()
-      .input('driver_id', driverId)
-      .query(`
-        SELECT d.id, d.ho_ten, d.so_dien_thoai, d.vi_do_hien_tai, d.kinh_do_hien_tai,
-               d.is_available, d.thanh_pho, d.tong_so_chuyen, d.ngay_tao,
-               u.email, u.vai_tro,
-               v.id as vehicle_id, v.loai_xe, v.bien_so, v.hang_xe, v.mau_xe
-        FROM drivers d
-        LEFT JOIN users u ON d.ma_user = u.id
-        LEFT JOIN vehicles v ON d.id = v.ma_tai_xe
-        WHERE d.id = @driver_id
-      `);
+    const result = await readPrimaryThenReplica(thanh_pho, (pool) =>
+      pool.request()
+        .input('driver_id', driverId)
+        .query(`
+          SELECT d.id, d.ho_ten, d.so_dien_thoai, d.vi_do_hien_tai, d.kinh_do_hien_tai,
+                 d.is_available, d.thanh_pho, d.tong_so_chuyen, d.ngay_tao,
+                 u.email, u.vai_tro,
+                 v.id as vehicle_id, v.loai_xe, v.bien_so, v.hang_xe, v.mau_xe, v.nam_san_xuat
+          FROM drivers d
+          LEFT JOIN users u ON d.ma_user = u.id
+          LEFT JOIN vehicles v ON d.id = v.ma_tai_xe AND v.dang_hoat_dong = 1
+          WHERE d.id = @driver_id
+        `)
+    );
 
     return result.recordset[0] || null;
   } catch (error) {
@@ -227,22 +251,22 @@ async function getDriverProfile(driverId, thanh_pho = 'HCM') {
 }
 
 async function getDriverProfileByUserId(userId, thanh_pho = 'HCM') {
-  const pool = await getReplicaConnection(thanh_pho);
-
   try {
-    const result = await pool.request()
-      .input('ma_user', userId)
-      .input('thanh_pho', thanh_pho)
-      .query(`
-        SELECT d.id, d.ho_ten, d.so_dien_thoai, d.vi_do_hien_tai, d.kinh_do_hien_tai,
-               d.is_available, d.thanh_pho, d.tong_so_chuyen, d.ngay_tao,
-               u.email, u.vai_tro,
-               v.id as vehicle_id, v.loai_xe, v.bien_so, v.hang_xe, v.mau_xe, v.nam_san_xuat
-        FROM drivers d
-        LEFT JOIN users u ON d.ma_user = u.id
-        LEFT JOIN vehicles v ON d.id = v.ma_tai_xe AND v.dang_hoat_dong = 1
-        WHERE d.ma_user = @ma_user AND d.thanh_pho = @thanh_pho
-      `);
+    const result = await readPrimaryThenReplica(thanh_pho, (pool) =>
+      pool.request()
+        .input('ma_user', userId)
+        .input('thanh_pho', thanh_pho)
+        .query(`
+          SELECT d.id, d.ho_ten, d.so_dien_thoai, d.vi_do_hien_tai, d.kinh_do_hien_tai,
+                 d.is_available, d.thanh_pho, d.tong_so_chuyen, d.ngay_tao,
+                 u.email, u.vai_tro,
+                 v.id as vehicle_id, v.loai_xe, v.bien_so, v.hang_xe, v.mau_xe, v.nam_san_xuat
+          FROM drivers d
+          LEFT JOIN users u ON d.ma_user = u.id
+          LEFT JOIN vehicles v ON d.id = v.ma_tai_xe AND v.dang_hoat_dong = 1
+          WHERE d.ma_user = @ma_user AND d.thanh_pho = @thanh_pho
+        `)
+    );
 
     return result.recordset[0] || null;
   } catch (error) {

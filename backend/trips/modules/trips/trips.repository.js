@@ -192,19 +192,35 @@ async function createTrip(payload) {
 
 async function getTripHistoryByUserId({ userId, thanh_pho, limit, offset }) {
   if (thanh_pho) {
-    const pool = await getReplicaConnection(thanh_pho);
-    const result = await pool.request()
-      .input('userId', sql.UniqueIdentifier, userId)
-      .input('limit', sql.Int, limit)
-      .input('offset', sql.Int, offset)
-      .query(buildHistoryQuery());
+    const readLimit = limit + offset;
+    const runHistoryQuery = (pool) =>
+      pool.request()
+        .input('userId', sql.UniqueIdentifier, userId)
+        .input('limit', sql.Int, readLimit)
+        .input('offset', sql.Int, 0)
+        .query(buildHistoryQuery());
 
-    return result.recordset;
+    const results = await Promise.allSettled([
+      getPrimaryConnection(thanh_pho).then(runHistoryQuery),
+      getReplicaConnection(thanh_pho).then(runHistoryQuery),
+    ]);
+
+    const rowsById = new Map();
+    for (const result of results) {
+      if (result.status !== 'fulfilled') continue;
+      for (const row of result.value.recordset) {
+        rowsById.set(String(row.id), row);
+      }
+    }
+
+    return [...rowsById.values()]
+      .sort((a, b) => new Date(b.ngay_tao) - new Date(a.ngay_tao))
+      .slice(offset, offset + limit);
   }
 
   const [hcmPool, hnPool] = await Promise.all([
-    getReplicaConnection('HCM'),
-    getReplicaConnection('HN'),
+    getPrimaryConnection('HCM'),
+    getPrimaryConnection('HN'),
   ]);
 
   const [hcmResult, hnResult] = await Promise.all([
@@ -274,6 +290,20 @@ async function getNearestPendingTrips({ thanh_pho, limit, latitude, longitude, d
       LEFT JOIN payments p ON p.ma_chuyen_di = t.id
       WHERE t.thanh_pho = @thanh_pho
         AND t.trang_thai = 'cho_xu_ly'
+        AND (
+          @driver_id IS NULL
+          OR EXISTS (
+            SELECT 1
+            FROM vehicles driver_vehicle
+            WHERE driver_vehicle.ma_tai_xe = @driver_id
+              AND driver_vehicle.dang_hoat_dong = 1
+              AND t.ma_loai_dich_vu = CASE driver_vehicle.loai_xe
+                WHEN 'xe_may' THEN 'bike'
+                WHEN 'o_to_4_cho' THEN 'car4'
+                WHEN 'o_to_7_cho' THEN 'car7'
+              END
+          )
+        )
         AND NOT EXISTS (
           SELECT 1
           FROM trip_assignments ta
@@ -341,8 +371,22 @@ async function acceptTrip({ tripId, driverUserId, thanh_pho }) {
     const tripResult = await new sql.Request(transaction)
       .input('tripId', sql.UniqueIdentifier, tripId)
       .input('thanh_pho', sql.VarChar(10), thanh_pho)
+      .input('driverId', sql.UniqueIdentifier, driver.id)
       .query(`
-        SELECT TOP (1) id, trang_thai
+        SELECT TOP (1)
+          id,
+          trang_thai,
+          CASE WHEN EXISTS (
+            SELECT 1
+            FROM vehicles v
+            WHERE v.ma_tai_xe = @driverId
+              AND v.dang_hoat_dong = 1
+              AND trips.ma_loai_dich_vu = CASE v.loai_xe
+                WHEN 'xe_may' THEN 'bike'
+                WHEN 'o_to_4_cho' THEN 'car4'
+                WHEN 'o_to_7_cho' THEN 'car7'
+              END
+          ) THEN 1 ELSE 0 END AS can_accept
         FROM trips WITH (UPDLOCK, ROWLOCK)
         WHERE id = @tripId
           AND thanh_pho = @thanh_pho
@@ -358,6 +402,12 @@ async function acceptTrip({ tripId, driverUserId, thanh_pho }) {
     if (trip.trang_thai !== 'cho_xu_ly') {
       const error = new Error('Chuyến đi không còn ở trạng thái chờ xử lý');
       error.code = 'TRIP_NOT_AVAILABLE';
+      throw error;
+    }
+
+    if (trip.can_accept !== 1) {
+      const error = new Error('Loại xe của tài xế không phù hợp chuyến này');
+      error.code = 'VEHICLE_TYPE_MISMATCH';
       throw error;
     }
 
@@ -412,13 +462,34 @@ async function rejectTrip({ tripId, driverUserId, thanh_pho }) {
       throw error;
     }
 
-    await new sql.Request(transaction)
+    const rejectResult = await new sql.Request(transaction)
       .input('ma_chuyen_di', sql.UniqueIdentifier, tripId)
       .input('ma_tai_xe', sql.UniqueIdentifier, driver.id)
       .query(`
-        INSERT INTO trip_assignments (ma_chuyen_di, ma_tai_xe, trang_thai_nhan)
-        VALUES (@ma_chuyen_di, @ma_tai_xe, 'tu_choi')
+        IF EXISTS (
+          SELECT 1
+          FROM trips
+          WHERE id = @ma_chuyen_di
+            AND trang_thai = 'cho_xu_ly'
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM trip_assignments
+          WHERE ma_chuyen_di = @ma_chuyen_di
+            AND ma_tai_xe = @ma_tai_xe
+            AND trang_thai_nhan = 'tu_choi'
+        )
+        BEGIN
+          INSERT INTO trip_assignments (ma_chuyen_di, ma_tai_xe, trang_thai_nhan)
+          VALUES (@ma_chuyen_di, @ma_tai_xe, 'tu_choi')
+        END
       `);
+
+    if (!rejectResult.rowsAffected || rejectResult.rowsAffected[0] === 0) {
+      const error = new Error('Chuyến đi không còn ở trạng thái chờ xử lý hoặc đã từ chối trước đó');
+      error.code = 'TRIP_NOT_AVAILABLE';
+      throw error;
+    }
 
     await transaction.commit();
 
@@ -446,7 +517,7 @@ async function completeTrip({ tripId, driverUserId, thanh_pho }) {
       throw error;
     }
 
-    await new sql.Request(transaction)
+    const completeResult = await new sql.Request(transaction)
       .input('tripId', sql.UniqueIdentifier, tripId)
       .input('driverId', sql.UniqueIdentifier, driver.id)
       .query(`
@@ -454,7 +525,25 @@ async function completeTrip({ tripId, driverUserId, thanh_pho }) {
         SET trang_thai = 'hoan_thanh'
         WHERE id = @tripId
           AND trang_thai IN ('dang_don', 'dang_cho')
+          AND EXISTS (
+            SELECT 1
+            FROM trip_assignments
+            WHERE ma_chuyen_di = @tripId
+              AND ma_tai_xe = @driverId
+              AND trang_thai_nhan = 'da_nhan'
+          )
+      `);
 
+    if (!completeResult.rowsAffected || completeResult.rowsAffected[0] === 0) {
+      const error = new Error('Chuyến đi không thuộc tài xế này hoặc chưa ở trạng thái có thể hoàn thành');
+      error.code = 'TRIP_NOT_AVAILABLE';
+      throw error;
+    }
+
+    await new sql.Request(transaction)
+      .input('tripId', sql.UniqueIdentifier, tripId)
+      .input('driverId', sql.UniqueIdentifier, driver.id)
+      .query(`
         UPDATE trip_assignments
         SET thoi_diem_hoan_thanh = SYSDATETIME()
         WHERE ma_chuyen_di = @tripId
