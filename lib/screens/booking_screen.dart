@@ -25,6 +25,7 @@ class _BookingScreenState extends State<BookingScreen> {
   LatLng currentPosition = LatLng(10.762622, 106.660172); // TP.HCM
   LatLng? pickupLatLng;
   LatLng? destinationLatLng;
+  bool isSelectingDestination = false; // Cờ xác định đang chọn điểm nào
 
   @override
   void initState() {
@@ -192,8 +193,13 @@ class _BookingScreenState extends State<BookingScreen> {
                 initialZoom: 14,
                 onTap: (tapPosition, point) {
                   setState(() {
-                    pickupLatLng = point;
-                    pickup.text = "${point.latitude}, ${point.longitude}";
+                    if (isSelectingDestination) {
+                      destinationLatLng = point;
+                      destination.text = "${point.latitude.toStringAsFixed(6)}, ${point.longitude.toStringAsFixed(6)}";
+                    } else {
+                      pickupLatLng = point;
+                      pickup.text = "${point.latitude.toStringAsFixed(6)}, ${point.longitude.toStringAsFixed(6)}";
+                    }
                   });
                 },
               ),
@@ -224,9 +230,9 @@ class _BookingScreenState extends State<BookingScreen> {
                   ),
                   SizedBox(height: 15), 
                   
-                  _buildInput("Điểm đón", pickup),
+                  _buildInput("Điểm đón (Nhấn vào đây rồi chạm bản đồ)", pickup, false),
                   SizedBox(height: 15),
-                  _buildInput("Điểm đến", destination),
+                  _buildInput("Điểm đến (Nhấn vào đây rồi chạm bản đồ)", destination, true),
                   SizedBox(height: 30),
 
                   ElevatedButton(
@@ -242,9 +248,15 @@ class _BookingScreenState extends State<BookingScreen> {
     );
   }
 
-  Widget _buildInput(String label, TextEditingController controller) {
+  Widget _buildInput(String label, TextEditingController controller, bool isDest) {
+    final isActive = isSelectingDestination == isDest;
     return TextField(
       controller: controller,
+      onTap: () {
+        setState(() {
+          isSelectingDestination = isDest;
+        });
+      },
       onSubmitted: (value) async {
         LatLng? pos = await getLatLngFromAddress(value);
 
@@ -263,9 +275,20 @@ class _BookingScreenState extends State<BookingScreen> {
       },
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(Icons.location_on),
+        labelStyle: TextStyle(
+          color: isActive ? Colors.deepPurple : Colors.grey,
+          fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+        ),
+        prefixIcon: Icon(
+          isDest ? Icons.location_on : Icons.my_location,
+          color: isActive ? (isDest ? Colors.red : Colors.green) : Colors.grey,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.deepPurple, width: 2),
         ),
       ),
     );

@@ -50,10 +50,13 @@ async function login(payload) {
   }
 
   const { email, mat_khau, thanh_pho } = payload;
-  const city = thanh_pho || 'HCM';
 
-  // Tìm user (SELECT → Replica)
-  const user = await repository.findUserByEmail(String(email).trim().toLowerCase(), city);
+  // Tự động tìm user trên cả 2 DB nếu không truyền thanh_pho
+  let user = await repository.findUserByEmail(String(email).trim().toLowerCase(), thanh_pho || 'HCM');
+  
+  if (!user && !thanh_pho) {
+    user = await repository.findUserByEmail(String(email).trim().toLowerCase(), 'HN');
+  }
 
   if (!user) {
     return { status: 401, body: { success: false, message: 'Email hoặc mật khẩu không đúng' } };

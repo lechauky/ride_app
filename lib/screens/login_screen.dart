@@ -35,10 +35,9 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => isProcessing = true);
 
     try {
-      final res = await ApiService.post('auth/login', city, {
+      final res = await ApiService.post('auth/login', 'HCM', { // Mặc định gọi cổng 5001 để login
         "email": emailCtl.text.trim(),
         "mat_khau": passCtl.text,
-        "thanh_pho": city,
       });
 
       final data = res["data"];
@@ -49,7 +48,7 @@ class _LoginScreenState extends State<LoginScreen> {
             id: userData["id"].toString(),
             email: userData["email"].toString(),
             hoTen: userData["ho_ten"].toString(),
-            thanhPho: (userData["thanh_pho"] ?? city).toString(),
+            thanhPho: (userData["thanh_pho"] ?? 'HCM').toString(),
             role: role,
           ),
           data["token"].toString(),
@@ -182,21 +181,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     if (v.length < 6) return "Mật khẩu tối thiểu 6 ký tự";
                     return null;
                   },
-                ),
-                const SizedBox(height: 14),
-                DropdownButtonFormField<String>(
-                  value: city,
-                  items: const [
-                    DropdownMenuItem(value: "HCM", child: Text("TP. Hồ Chí Minh")),
-                    DropdownMenuItem(value: "HN", child: Text("Hà Nội")),
-                  ],
-                  onChanged: (v) => setState(() => city = v!),
-                  decoration: InputDecoration(
-                    labelText: "Khu vực",
-                    prefixIcon: const Icon(Icons.location_city),
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14)),
-                  ),
                 ),
                 Align(
                   alignment: Alignment.centerRight,

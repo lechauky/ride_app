@@ -1,13 +1,16 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'auth_store.dart';
 
 class ApiService {
-  static const serverMienNam = "http://10.0.2.2:5001/api";
-  static const serverMienBac = "http://10.0.2.2:5002/api";
+  static final String _host = kIsWeb ? "localhost" : "10.0.2.2";
 
-  static const backupMienNam = "http://10.0.2.2:6001/api";
-  static const backupMienBac = "http://10.0.2.2:6002/api";
+  static String get serverMienNam => "http://$_host:5001/api";
+  static String get serverMienBac => "http://$_host:5002/api";
+
+  static String get backupMienNam => "http://$_host:6001/api";
+  static String get backupMienBac => "http://$_host:6002/api";
 
   static String getPrimary(String city) {
     return city == "HCM" ? serverMienNam : serverMienBac;

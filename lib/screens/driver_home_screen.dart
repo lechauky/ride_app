@@ -64,6 +64,26 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   }
 
   TripRequest _mockRequest() {
+    final userCity = AuthStore.currentUser.value?.thanhPho ?? "HCM";
+
+    if (userCity == "HN") {
+      // Một cuốc xe giả lập ở Hà Nội (Hồ Hoàn Kiếm → Lăng Bác)
+      return TripRequest(
+        maChuyenDi: "${DateTime.now().millisecondsSinceEpoch % 100000}",
+        tenKhach: "Nguyễn Văn A",
+        soDienThoai: "0912 345 678",
+        diemDanhGia: 4.9,
+        diaChiDon: "Hồ Hoàn Kiếm, Hoàn Kiếm, Hà Nội",
+        diaChiDen: "Lăng Bác, Ba Đình, Hà Nội",
+        diemDon: const LatLng(21.028511, 105.854165),
+        diemDen: const LatLng(21.036814, 105.834185),
+        khoangCachKm: 2.5,
+        gia: 35000,
+        loaiXe: "Xe máy",
+        phuongThucThanhToan: "Tiền mặt",
+      );
+    }
+
     // Một cuốc xe giả lập trong khu vực Quận 1 → Quận 7 (HCM)
     return TripRequest(
       maChuyenDi: "${DateTime.now().millisecondsSinceEpoch % 100000}",
