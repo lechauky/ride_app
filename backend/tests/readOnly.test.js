@@ -28,3 +28,15 @@ test('read-only error được map thành HTTP 503', () => {
   assert.equal(result.body.read_only, true);
   assert.match(result.body.message, /Server chính/);
 });
+
+test('lỗi kết nối primary được map thành HTTP 503 read-only', () => {
+  const error = new Error('Failed to connect to mssql-nam-primary:1433 - getaddrinfo ENOTFOUND mssql-nam-primary');
+
+  const result = mapReadOnlyResult(error);
+
+  assert.equal(isReadOnlyError(error), true);
+  assert.equal(result.status, READ_ONLY_HTTP_STATUS);
+  assert.equal(result.body.success, false);
+  assert.equal(result.body.read_only, true);
+  assert.match(result.body.message, /chỉ xem/);
+});

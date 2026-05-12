@@ -1,16 +1,31 @@
 const READ_ONLY_HTTP_STATUS = 503;
 const READ_ONLY_MESSAGE = 'Server chính đang bảo trì, hiện chỉ xem được dữ liệu';
+const CONNECTION_ERROR_CODES = new Set([
+  'ESOCKET',
+  'ECONNREFUSED',
+  'ECONNCLOSED',
+  'ETIMEOUT',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+]);
+const READ_ONLY_PHRASES = [
+  'read-only',
+  'read only',
+  'chỉ xem',
+  'failed to connect',
+  'connection lost',
+  'connect etimedout',
+  'connect econnrefused',
+  'getaddrinfo enotfound',
+];
 
 function isReadOnlyError(error) {
   if (!error) return false;
   if (error.code === 'READ_ONLY_MODE') return true;
+  if (CONNECTION_ERROR_CODES.has(error.code)) return true;
 
   const message = String(error.message || '').toLowerCase();
-  return (
-    message.includes('read-only') ||
-    message.includes('read only') ||
-    message.includes('chỉ xem')
-  );
+  return READ_ONLY_PHRASES.some((phrase) => message.includes(phrase));
 }
 
 function buildReadOnlyResponse() {
