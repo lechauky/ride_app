@@ -12,8 +12,6 @@
 # Cách tắt:  docker-compose down
 # ============================================================
 
-version: '3.8'
-
 services:
   # ========== MIỀN NAM - PRIMARY (Port 50011) ==========
   mssql-nam-primary:

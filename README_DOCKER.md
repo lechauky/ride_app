@@ -1,67 +1,99 @@
-# Hướng dẫn chạy 4 Server SQL Server bằng Docker
+# Docker cho cụm SQL Server phân tán
 
-File `docker-compose.yml` giúp tạo ra 4 máy chủ database hoàn toàn độc lập.
+File `docker-compose.yml` trong repo hiện dùng để chạy 4 SQL Server độc lập cho demo phân tán. Backend Node.js chạy ngoài Docker bằng `node backend/start_all.js` và kết nối tới các database qua port host.
 
-## 1. Bảng Port Database
+## Bảng port
 
-*Lưu ý: Các port này dành riêng cho Database (port API thêm số 1 ở cuối) để dễ nhớ và không bị đụng độ với port API (5001/5002...)*
+| Service Compose | Container | API tương ứng | Port database trên máy host | Vai trò | User app | Password app |
+| --- | --- | --- | --- | --- | --- | --- |
+| `mssql-nam-primary` | `sql_nam_primary` | `5001` | `50011` | HCM Primary, đọc/ghi | `rideapp` | `123456` |
+| `mssql-bac-primary` | `sql_bac_primary` | `5002` | `50021` | HN Primary, đọc/ghi | `rideapp` | `123456` |
+| `mssql-nam-replica` | `sql_nam_replica` | `6001` | `60011` | HCM Replica, chỉ đọc | `rideapp` | `123456` |
+| `mssql-bac-replica` | `sql_bac_replica` | `6002` | `60021` | HN Replica, chỉ đọc | `rideapp` | `123456` |
 
-| Máy chủ | Port API | Port Database | Vai trò | User | Password |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Miền Nam (Primary)** | `5001` | `50011` | Ghi + Đọc (Read/Write) | rideapp | 123456 |
-| **Miền Bắc (Primary)** | `5002` | `50021` | Ghi + Đọc (Read/Write) | rideapp | 123456 |
-| **Miền Nam (Backup)** | `6001` | `60011` | Chỉ Đọc (Read-Only) | rideapp | 123456 |
-| **Miền Bắc (Backup)** | `6002` | `60021` | Chỉ Đọc (Read-Only) | rideapp | 123456 |
+Mật khẩu `sa` trong Docker Compose là `123456Aa`. Backend dùng user ứng dụng `rideapp/123456` sau khi seed.
 
-## 2. Yêu cầu
+## Chạy database
 
-- Cài đặt **Docker Desktop**: https://www.docker.com/products/docker-desktop
-- RAM tối thiểu **8GB** (mỗi container SQL Server chiếm khoảng 2GB)
-
-## 3. Cách chạy
-
-```bash
-# Bước 1: Mở Terminal tại thư mục gốc dự án (chứa file docker-compose.yml)
-# Bước 2: Chạy lệnh
-docker-compose up -d
-
-# Bước 3: Kiểm tra 4 container đã chạy chưa
-docker ps
+```powershell
+docker compose up -d
+docker compose ps
 ```
 
-Kết quả mong đợi: 4 container có trạng thái `Up`.
+Kết quả mong đợi: 4 container SQL Server ở trạng thái `Up`.
 
-## 4. Nạp dữ liệu (Seeding) Tự động
+## Tạo file môi trường cho backend local
 
-Toàn bộ quá trình tạo Database, phân quyền và nạp dữ liệu (Users, Drivers, Trips) đã được tự động hóa bằng Javascript. 
-Chỉ cần chạy 1 lệnh duy nhất này tại thư mục gốc:
+Backend hiện không nằm trong Docker Compose, vì vậy khi clone repo cần tạo `backend/.env` nếu muốn chạy backend trên máy host:
 
-```bash
+```powershell
+Copy-Item backend/.env.example backend/.env
+```
+
+Các host database trong `.env.example` để là `localhost` vì backend chạy trên máy host và truy cập SQL Server qua port đã expose của Docker.
+
+## Seed dữ liệu
+
+Chạy sau khi container SQL Server đã khởi động ổn định:
+
+```powershell
 cd backend
 npm install
 node database/seed-all.js
+cd ..
 ```
 
-Sau khi chạy xong, hệ thống sẽ tự động có sẵn hàng trăm dòng dữ liệu thực tế cho bạn test.
+Script seed tạo database, schema, tài khoản demo, tài xế, xe và dữ liệu mẫu cho cả HCM/HN.
 
-## 5. Cách tắt
-```bash
-# Tắt nhưng giữ dữ liệu 
-docker-compose down
+## Chạy backend API
 
-# Tắt và xoá sạch dữ liệu (bắt đầu lại từ đầu)
-docker-compose down -v
+```powershell
+cd backend
+node start_all.js
 ```
 
-## 6. Test Fail-over
+Các API được mở:
 
-Muốn giả lập server sập để test Fail-over, chỉ cần tắt 1 container:
+- HCM Primary: `http://localhost:5001/api`
+- HN Primary: `http://localhost:5002/api`
+- HCM Backup: `http://localhost:6001/api`
+- HN Backup: `http://localhost:6002/api`
 
-```bash
-# Giả lập: Server Miền Nam (Primary) bị sập
+Kiểm tra nhanh:
+
+```powershell
+curl http://localhost:5001/api/health
+curl http://localhost:5002/api/health
+```
+
+## Tắt hoặc reset dữ liệu
+
+Tắt container nhưng giữ volume dữ liệu:
+
+```powershell
+docker compose down
+```
+
+Tắt và xóa toàn bộ dữ liệu để seed lại từ đầu:
+
+```powershell
+docker compose down -v
+```
+
+## Test failover
+
+Ví dụ tắt primary miền Nam:
+
+```powershell
 docker stop sql_nam_primary
+```
 
-# Backend sẽ tự động nhảy sang Backup (Port 6001)!
-# Khôi phục lại:
+Backend sẽ chuyển request đọc sang replica HCM. Khôi phục lại:
+
+```powershell
 docker start sql_nam_primary
 ```
+
+## Ghi chú nếu muốn Docker hóa backend
+
+Nếu nhóm muốn Docker Compose chạy luôn backend, cần thêm Dockerfile/service cho Node.js và đổi host database trong env của backend từ `localhost` sang service name Compose như `mssql-nam-primary`, `mssql-bac-primary`, `mssql-nam-replica`, `mssql-bac-replica`. Thay đổi đó chưa có trong cấu hình hiện tại.
