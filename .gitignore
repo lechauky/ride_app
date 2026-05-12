@@ -58,3 +58,4 @@ backend/database/*
 !backend/database/02_schema_mssql.sql
 !backend/database/06_smoke_test_mssql.sql
 !backend/database/seed-all.js
+!backend/database/repair-demo-unicode.js
