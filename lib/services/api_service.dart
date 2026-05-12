@@ -1,16 +1,40 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, debugPrint, defaultTargetPlatform, kIsWeb;
 import 'package:http/http.dart' as http;
 import 'auth_store.dart';
 
 class ApiService {
-  static final String _host = kIsWeb ? "localhost" : "10.0.2.2";
+  static const String _configuredHost = String.fromEnvironment("API_HOST");
+  static const String _namPrimaryPort = String.fromEnvironment(
+    "API_NAM_PRIMARY_PORT",
+    defaultValue: "5001",
+  );
+  static const String _bacPrimaryPort = String.fromEnvironment(
+    "API_BAC_PRIMARY_PORT",
+    defaultValue: "5002",
+  );
+  static const String _namBackupPort = String.fromEnvironment(
+    "API_NAM_BACKUP_PORT",
+    defaultValue: "6001",
+  );
+  static const String _bacBackupPort = String.fromEnvironment(
+    "API_BAC_BACKUP_PORT",
+    defaultValue: "6002",
+  );
 
-  static String get serverMienNam => "http://$_host:5001/api";
-  static String get serverMienBac => "http://$_host:5002/api";
+  static String get _host {
+    if (_configuredHost.isNotEmpty) return _configuredHost;
+    if (kIsWeb) return "localhost";
+    if (defaultTargetPlatform == TargetPlatform.android) return "10.0.2.2";
+    return "localhost";
+  }
 
-  static String get backupMienNam => "http://$_host:6001/api";
-  static String get backupMienBac => "http://$_host:6002/api";
+  static String get serverMienNam => "http://$_host:$_namPrimaryPort/api";
+  static String get serverMienBac => "http://$_host:$_bacPrimaryPort/api";
+
+  static String get backupMienNam => "http://$_host:$_namBackupPort/api";
+  static String get backupMienBac => "http://$_host:$_bacBackupPort/api";
 
   static String getPrimary(String city) {
     return city == "HCM" ? serverMienNam : serverMienBac;
@@ -44,7 +68,7 @@ class ApiService {
       );
       return {"data": jsonDecode(res.body), "isBackup": false};
     } catch (e) {
-      print("Primary fail → backup");
+      debugPrint("Primary fail -> backup");
       try {
         final res = await http.post(
           Uri.parse("$backup/$endpoint"),
@@ -72,7 +96,7 @@ class ApiService {
       );
       return {"data": jsonDecode(res.body), "isBackup": false};
     } catch (e) {
-      print("Primary fail → backup GET");
+      debugPrint("Primary fail -> backup GET");
       try {
         final res = await http.get(
           Uri.parse("$backup/$endpoint"),
@@ -104,7 +128,7 @@ class ApiService {
       );
       return {"data": jsonDecode(res.body), "isBackup": false};
     } catch (e) {
-      print("Primary fail → backup PUT");
+      debugPrint("Primary fail -> backup PUT");
       try {
         final res = await http.put(
           Uri.parse("$backup/$endpoint"),

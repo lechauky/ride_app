@@ -2,68 +2,53 @@
 
 Ứng dụng gọi xe phục vụ đồ án Cơ sở dữ liệu phân tán. Project gồm Flutter frontend, backend Node.js/Express và 4 SQL Server mô phỏng cụm dữ liệu theo vùng.
 
-## Kiến trúc chạy demo
+## Kiến Trúc Demo
 
-| Thành phần | Công nghệ | Cách chạy | URL/port chính |
+| Thành phần | Công nghệ | Cách chạy | URL/port |
 | --- | --- | --- | --- |
-| Frontend | Flutter, `flutter_map` | Flutter web hoặc Android emulator | Web chạy bằng Flutter dev server |
-| Backend API | Node.js/Express | Chạy ngoài Docker bằng `node backend/start_all.js` | `5001`, `5002`, `6001`, `6002` |
+| Frontend | Flutter, `flutter_map` | Flutter web, Android emulator hoặc điện thoại thật | Flutter dev server |
+| Backend API | Node.js/Express | Docker Compose hoặc chạy local | `5001`, `5002`, `6001`, `6002` |
 | Database | SQL Server 2022 | Docker Compose | `50011`, `50021`, `60011`, `60021` |
 | Bản đồ | OpenStreetMap qua `flutter_map` | Miễn phí, không cần API key | `https://tile.openstreetmap.org` |
 
-Project không dùng Google Maps SDK trong Flutter, nên không cần API key Google Maps để build hoặc chạy demo.
+Project đang dùng OpenStreetMap, không dùng Google Maps SDK trong Flutter, nên không cần API key Google Maps để build hoặc chạy demo.
 
-## Yêu cầu máy
+## Yêu Cầu Máy
 
 - Docker Desktop.
 - Flutter SDK và Chrome nếu chạy web.
 - Android Studio/Android Emulator nếu demo mobile.
-- Node.js 18+ để chạy backend.
+- Node.js 18+ nếu muốn chạy backend ngoài Docker.
 - RAM nên có tối thiểu 8GB vì SQL Server container khá nặng.
 
-## Cài đặt sau khi clone
+## Cài Đặt Sau Khi Clone
 
 ```powershell
 git clone <repo-url>
 cd ride_app
-
 flutter pub get
-
-cd backend
-npm install
-Copy-Item .env.example .env
-cd ..
 ```
 
-File `backend/.env` chỉ cần khi chạy backend ngoài Docker. Với cấu trúc hiện tại, backend đang chạy ngoài Docker nên người clone repo cần tạo file này từ `backend/.env.example`. Không cần tạo `.env` cho Flutter frontend và không cần Google Maps API key.
+Nếu chạy bằng Docker Compose đầy đủ, không cần tạo file `.env` cho backend. Docker Compose truyền biến môi trường trực tiếp vào container backend.
 
-## Chạy database bằng Docker
+Chỉ cần tạo `backend/.env` khi chạy backend ngoài Docker:
 
 ```powershell
-docker compose up -d
-docker ps
+Copy-Item backend/.env.example backend/.env
 ```
 
-Các container database cần ở trạng thái `Up` trước khi seed hoặc chạy backend.
+Frontend Flutter không cần file `.env` và không cần Google Maps API key.
 
-## Seed dữ liệu demo
+## Chạy Nhanh Bằng Docker Compose
+
+Lệnh này build backend và chạy cả 4 SQL Server:
 
 ```powershell
-cd backend
-node database/seed-all.js
-cd ..
+docker compose up -d --build
+docker compose ps
 ```
 
-Seed tạo database, bảng, user demo, tài xế, xe và dữ liệu chuyến đi mẫu cho hai vùng HCM/HN.
-
-## Chạy backend
-
-```powershell
-cd backend
-node start_all.js
-```
-
-Backend sẽ mở 4 API:
+Backend được expose ra máy host:
 
 | Vùng | Vai trò | URL |
 | --- | --- | --- |
@@ -72,42 +57,71 @@ Backend sẽ mở 4 API:
 | HCM | Backup | `http://localhost:6001/api` |
 | HN | Backup | `http://localhost:6002/api` |
 
-Smoke test nhanh:
+Smoke test:
 
 ```powershell
 curl http://localhost:5001/api/health
 curl http://localhost:5002/api/health
 ```
 
-## Chạy Flutter web
+## Seed Dữ Liệu Demo
+
+Sau khi SQL Server container đã khởi động ổn định:
+
+```powershell
+cd backend
+npm install
+node database/seed-all.js
+cd ..
+```
+
+Seed tạo database, bảng, user demo, tài xế, xe và dữ liệu chuyến đi mẫu cho cả HCM/HN.
+
+## Chạy Backend Ngoài Docker
+
+Dùng cách này khi muốn debug Node.js trực tiếp trên máy host:
+
+```powershell
+Copy-Item backend/.env.example backend/.env
+cd backend
+npm install
+node start_all.js
+```
+
+Khi chạy ngoài Docker, các host database trong `backend/.env` để `localhost` vì backend kết nối qua port SQL Server đã expose ra máy host.
+
+## Chạy Flutter Web
 
 ```powershell
 flutter run -d chrome
 ```
 
-Ở web mode, frontend gọi backend qua `localhost`, ví dụ `http://localhost:5001/api`.
+Web mode mặc định gọi backend qua `localhost`.
 
-## Chạy Android emulator
+## Chạy Android Emulator
 
 ```powershell
 flutter devices
 flutter run -d <device-id>
 ```
 
-Ở Android emulator, frontend gọi backend host qua `10.0.2.2`, không dùng `localhost`. Android manifest đã cho phép HTTP cleartext để demo với backend local.
+Android emulator mặc định gọi backend host qua `10.0.2.2`, không dùng `localhost`. Android Manifest đã bật `usesCleartextTraffic` để demo với backend HTTP local.
 
-## Chạy trên điện thoại thật
+## Chạy Trên Điện Thoại Thật
 
-Điện thoại thật không truy cập được `10.0.2.2`. Máy tính chạy backend và điện thoại phải cùng mạng Wi-Fi, sau đó cần dùng IP LAN của máy tính, ví dụ:
+Điện thoại thật không truy cập được `10.0.2.2`. Máy tính chạy Docker/backend và điện thoại phải cùng mạng Wi-Fi. Lấy IP LAN của máy tính, ví dụ `192.168.1.20`, rồi chạy:
 
-```text
-http://192.168.1.20:5001/api
-http://192.168.1.20:5002/api
+```powershell
+flutter run --dart-define=API_HOST=192.168.1.20
 ```
 
-Hiện `lib/services/api_service.dart` đang tối ưu cho web và Android emulator. Nếu demo bằng điện thoại thật, đổi host native từ `10.0.2.2` sang IP LAN của máy chạy backend hoặc bổ sung cấu hình runtime trước khi build.
+Nếu đổi port API:
 
-## Bản đồ OpenStreetMap
+```powershell
+flutter run --dart-define=API_HOST=192.168.1.20 --dart-define=API_NAM_PRIMARY_PORT=5001 --dart-define=API_BAC_PRIMARY_PORT=5002
+```
+
+## Bản Đồ OpenStreetMap
 
 Frontend dùng:
 
@@ -115,20 +129,20 @@ Frontend dùng:
 - `latlong2`
 - tile OpenStreetMap: `https://tile.openstreetmap.org/{z}/{x}/{y}.png`
 
-Không cần Google Maps API key. Khi demo/làm bài tập với lượng truy cập nhỏ, tile public của OpenStreetMap phù hợp. Nếu triển khai thật hoặc tải lớn, cần dùng tile provider riêng hoặc self-host tile theo chính sách của OpenStreetMap.
+Không cần Google Maps API key. Với demo/lớp học có lượng truy cập nhỏ, tile public của OpenStreetMap phù hợp. Nếu triển khai thật hoặc tải lớn, nên dùng tile provider riêng hoặc self-host tile theo chính sách OpenStreetMap.
 
-## Tài khoản demo
+## Tài Khoản Demo
 
 Mật khẩu chung cho tài khoản seed mẫu: `123456`.
 
-Một vài tài khoản khách:
+Tài khoản khách:
 
 - HCM: `khachhang22_hcm@gmail.com`
 - HCM: `khachhang13_hcm@gmail.com`
 - HN: `khachhang43_hn@gmail.com`
 - HN: `khachhang10_hn@gmail.com`
 
-Một vài tài khoản tài xế:
+Tài khoản tài xế:
 
 - HCM: `taixe8_hcm@gmail.com`
 - HCM: `taixe7_hcm@gmail.com`
@@ -137,15 +151,7 @@ Một vài tài khoản tài xế:
 
 Danh sách đầy đủ nằm trong `Danh_Sach_Tai_Khoan_Demo.txt`.
 
-## Lệnh kiểm tra hữu ích
-
-```powershell
-docker compose config --quiet
-docker compose ps
-dart analyze lib/screens/booking_screen.dart
-```
-
-Kiểm tra API tài xế gần điểm đón:
+## Kiểm Tra API Tài Xế Gần Điểm Đón
 
 ```powershell
 curl -X POST http://localhost:5001/api/drivers/nearest `
@@ -157,10 +163,11 @@ curl -X POST http://localhost:5002/api/drivers/nearest `
   -d "{\"latitude\":21.0285,\"longitude\":105.8542,\"thanh_pho\":\"HN\",\"max_distance\":10,\"limit\":5}"
 ```
 
-## Xử lý lỗi thường gặp
+## Xử Lý Lỗi Thường Gặp
 
-- Backend báo thiếu `.env`: chạy `Copy-Item backend/.env.example backend/.env`.
-- App web không gọi được API: kiểm tra backend có đang chạy ở port `5001/5002` không.
+- `docker compose config --quiet` lỗi: kiểm tra Docker Desktop và cú pháp `docker-compose.yml`.
+- Backend báo thiếu `.env` khi chạy local: tạo `backend/.env` từ `backend/.env.example`.
+- Web không gọi được API: kiểm tra backend/container có expose port `5001/5002` không.
 - Emulator không gọi được API: dùng `10.0.2.2`, không dùng `localhost`.
 - Điện thoại thật không gọi được API: dùng IP LAN của máy tính và mở firewall cho port `5001/5002`.
-- SQL Server chưa nhận kết nối ngay sau khi `docker compose up -d`: chờ thêm 30-60 giây rồi seed lại.
+- SQL Server chưa nhận kết nối ngay sau khi `docker compose up -d`: chờ 30-60 giây rồi seed lại.
