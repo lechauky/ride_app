@@ -10,7 +10,9 @@ import 'login_screen.dart';
 import 'passenger_trip_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final bool autoLoadBookingLocation;
+
+  const HomeScreen({super.key, this.autoLoadBookingLocation = true});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -41,8 +43,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                    builder: (_) => const NotificationsScreen()),
+                MaterialPageRoute(builder: (_) => const NotificationsScreen()),
               );
             },
           ),
@@ -69,10 +70,9 @@ class _HomeScreenState extends State<HomeScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [
-                  Colors.deepPurple,
-                  Colors.deepPurple.shade300,
-                ]),
+                gradient: LinearGradient(
+                  colors: [Colors.deepPurple, Colors.deepPurple.shade300],
+                ),
                 borderRadius: BorderRadius.circular(18),
               ),
               child: Row(
@@ -80,22 +80,32 @@ class _HomeScreenState extends State<HomeScreen> {
                   const CircleAvatar(
                     radius: 28,
                     backgroundColor: Colors.white,
-                    child: Icon(Icons.person,
-                        color: Colors.deepPurple, size: 30),
+                    child: Icon(
+                      Icons.person,
+                      color: Colors.deepPurple,
+                      size: 30,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("Xin chào, $tenHienThi",
-                            style:
-                                const TextStyle(color: Colors.white70, fontSize: 13)),
-                        const Text("Bạn muốn đi đâu hôm nay?",
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 17,
-                                fontWeight: FontWeight.bold)),
+                        Text(
+                          "Xin chào, $tenHienThi",
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const Text(
+                          "Bạn muốn đi đâu hôm nay?",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -126,10 +136,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(colors: [
-                            Colors.green.shade600,
-                            Colors.green.shade400,
-                          ]),
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.green.shade600,
+                              Colors.green.shade400,
+                            ],
+                          ),
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
@@ -147,14 +159,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                 color: Colors.white24,
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(Icons.directions_car,
-                                  color: Colors.white, size: 22),
+                              child: const Icon(
+                                Icons.directions_car,
+                                color: Colors.white,
+                                size: 22,
+                              ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   const Text(
                                     "Bạn đang trong chuyến đi",
@@ -176,8 +190,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ],
                               ),
                             ),
-                            const Icon(Icons.arrow_forward_ios,
-                                color: Colors.white, size: 16),
+                            const Icon(
+                              Icons.arrow_forward_ios,
+                              color: Colors.white,
+                              size: 16,
+                            ),
                           ],
                         ),
                       ),
@@ -190,7 +207,8 @@ class _HomeScreenState extends State<HomeScreen> {
             // Card chọn thành phố
             Card(
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16)),
+                borderRadius: BorderRadius.circular(16),
+              ),
               elevation: 2,
               child: Padding(
                 padding: const EdgeInsets.all(12),
@@ -224,9 +242,10 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 20),
 
-            const Text("Dịch vụ",
-                style:
-                    TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            const Text(
+              "Dịch vụ",
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
             const SizedBox(height: 10),
 
             GridView.count(
@@ -245,7 +264,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (_) => const BookingScreen()),
+                        builder: (_) => BookingScreen(
+                          thanhPho: city,
+                          autoLoadLocation: widget.autoLoadBookingLocation,
+                        ),
+                      ),
                     );
                   },
                 ),
@@ -256,8 +279,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                          builder: (_) => const RatingScreen()),
+                      MaterialPageRoute(builder: (_) => const RatingScreen()),
                     );
                   },
                 ),
@@ -269,7 +291,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (_) => const NotificationsScreen()),
+                        builder: (_) => const NotificationsScreen(),
+                      ),
                     );
                   },
                 ),
@@ -280,8 +303,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                          builder: (_) => HistoryScreen()),
+                      MaterialPageRoute(builder: (_) => HistoryScreen()),
                     );
                   },
                 ),
@@ -293,11 +315,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _menu(
-      {required IconData icon,
-      required String label,
-      required Color color,
-      required VoidCallback onTap}) {
+  Widget _menu({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
@@ -308,9 +331,10 @@ class _HomeScreenState extends State<HomeScreen> {
           border: Border.all(color: Colors.grey.shade200),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 6,
-                offset: const Offset(0, 2)),
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
           ],
         ),
         padding: const EdgeInsets.all(12),
@@ -323,10 +347,11 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Icon(icon, color: color, size: 26),
             ),
             const SizedBox(height: 10),
-            Text(label,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w600)),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
           ],
         ),
       ),

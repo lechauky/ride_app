@@ -29,6 +29,7 @@ class RideTypesScreen extends StatefulWidget {
   final String? diaChiDen;
   final LatLng? diemDon;
   final LatLng? diemDen;
+  final String thanhPho;
 
   const RideTypesScreen({
     super.key,
@@ -37,6 +38,7 @@ class RideTypesScreen extends StatefulWidget {
     this.diaChiDen,
     this.diemDon,
     this.diemDen,
+    this.thanhPho = "HCM",
   });
 
   @override
@@ -320,6 +322,7 @@ class _RideTypesScreenState extends State<RideTypesScreen> {
                           diaChiDen: widget.diaChiDen,
                           diemDon: widget.diemDon,
                           diemDen: widget.diemDen,
+                          thanhPho: widget.thanhPho,
                         ),
                       ),
                     );

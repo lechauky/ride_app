@@ -20,6 +20,7 @@ class TripRequest {
   final int gia;
   final String loaiXe;
   final String phuongThucThanhToan;
+  final double? khoangCachDenTaiXeKm;
 
   TripRequest({
     required this.maChuyenDi,
@@ -35,6 +36,7 @@ class TripRequest {
     required this.gia,
     required this.loaiXe,
     required this.phuongThucThanhToan,
+    this.khoangCachDenTaiXeKm,
   });
 
   factory TripRequest.fromJson(Map<String, dynamic> json) {
@@ -79,6 +81,7 @@ class TripRequest {
       phuongThucThanhToan: _paymentLabel(
         _readString(json, 'phuong_thuc', fallback: 'tien_mat'),
       ),
+      khoangCachDenTaiXeKm: _readDouble(json, 'khoang_cach_den_tai_xe_km'),
     );
   }
 

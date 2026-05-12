@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import '../services/active_trip_store.dart';
 import '../services/api_service.dart';
-import '../services/auth_store.dart';
 import 'passenger_trip_screen.dart';
 
 class PaymentMethod {
@@ -23,6 +22,7 @@ class PaymentScreen extends StatefulWidget {
   final String? diaChiDen;
   final LatLng? diemDon;
   final LatLng? diemDen;
+  final String thanhPho;
 
   const PaymentScreen({
     super.key,
@@ -34,6 +34,7 @@ class PaymentScreen extends StatefulWidget {
     this.diaChiDen,
     this.diemDon,
     this.diemDen,
+    this.thanhPho = "HCM",
   });
 
   @override
@@ -113,7 +114,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     setState(() => isProcessing = true);
 
     try {
-      final city = AuthStore.currentUser.value?.thanhPho ?? "HCM";
+      final city = widget.thanhPho;
       final paymentStatus = methods[selected].id == "tien_mat"
           ? "cho_thanh_toan"
           : "da_thanh_toan";

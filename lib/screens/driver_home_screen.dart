@@ -12,7 +12,9 @@ import 'login_screen.dart';
 import 'active_trip_screen.dart';
 
 class DriverHomeScreen extends StatefulWidget {
-  const DriverHomeScreen({super.key});
+  final bool enablePolling;
+
+  const DriverHomeScreen({super.key, this.enablePolling = true});
 
   @override
   State<DriverHomeScreen> createState() => _DriverHomeScreenState();
@@ -30,12 +32,14 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadIncomingRequest();
-    _requestTimer = Timer.periodic(const Duration(seconds: 8), (_) {
-      if (dangRanh && incomingRequest == null && !isLoadingRequest) {
-        _loadIncomingRequest();
-      }
-    });
+    if (widget.enablePolling) {
+      _loadIncomingRequest();
+      _requestTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+        if (dangRanh && incomingRequest == null && !isLoadingRequest) {
+          _loadIncomingRequest();
+        }
+      });
+    }
   }
 
   @override
@@ -233,10 +237,16 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     return "${buf.toString()}₫";
   }
 
+  String _cityLabel(String city) {
+    return city == "HN" ? "Hà Nội" : "TP.HCM";
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = AuthStore.currentUser.value;
     final tenTaiXe = user?.hoTen ?? "Tài xế";
+    final city = user?.thanhPho ?? "HCM";
+    final cityLabel = _cityLabel(city);
 
     return Scaffold(
       appBar: AppBar(
@@ -310,6 +320,11 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                           ),
                         ),
                         const SizedBox(height: 4),
+                        Text(
+                          "Khu vực hoạt động: $cityLabel",
+                          style: const TextStyle(color: Colors.white70),
+                        ),
+                        const SizedBox(height: 2),
                         const Text(
                           "⭐ 4.9 • 234 chuyến",
                           style: TextStyle(color: Colors.white70),
@@ -517,6 +532,26 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
           ),
           const SizedBox(height: 12),
 
+          Row(
+            children: [
+              const Icon(Icons.near_me, size: 16, color: Colors.deepPurple),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  r.khoangCachDenTaiXeKm == null
+                      ? "Đề xuất khách gần • ${_cityLabel(r.thanhPho)}"
+                      : "Đề xuất khách gần • ${r.khoangCachDenTaiXeKm!.toStringAsFixed(2)} km • ${_cityLabel(r.thanhPho)}",
+                  style: const TextStyle(
+                    color: Colors.deepPurple,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
           // Khách + giá
           Row(
             children: [
@@ -656,6 +691,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   }
 
   Widget _buildSearchingCard() {
+    final city = AuthStore.currentUser.value?.thanhPho ?? "HCM";
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -674,12 +710,12 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
             ),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "Đang chờ cuốc xe…",
+                  "Đang tìm khách gần bạn tại ${_cityLabel(city)}",
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                 ),
                 Text(

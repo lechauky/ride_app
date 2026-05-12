@@ -6,11 +6,17 @@ import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import '../services/api_service.dart';
-import '../services/auth_store.dart';
 import 'ride_types_screen.dart';
 
 class BookingScreen extends StatefulWidget {
-  const BookingScreen({super.key});
+  final String thanhPho;
+  final bool autoLoadLocation;
+
+  const BookingScreen({
+    super.key,
+    this.thanhPho = "HCM",
+    this.autoLoadLocation = true,
+  });
 
   @override
   State<BookingScreen> createState() => _BookingScreenState();
@@ -32,13 +38,21 @@ class _BookingScreenState extends State<BookingScreen> {
   LatLng? destinationLatLng;
   bool isSelectingDestination = false;
 
+  LatLng _defaultPositionForCity(String city) {
+    return city == "HN"
+        ? const LatLng(21.028511, 105.854165)
+        : const LatLng(10.762622, 106.660172);
+  }
+
   @override
   void initState() {
     super.initState();
     pickup.addListener(validate);
     destination.addListener(validate);
 
-    getCurrentLocation();
+    if (widget.autoLoadLocation) {
+      getCurrentLocation();
+    }
   }
 
   @override
@@ -84,7 +98,7 @@ class _BookingScreenState extends State<BookingScreen> {
       return;
     }
 
-    final city = AuthStore.currentUser.value?.thanhPho ?? "HCM";
+    final city = widget.thanhPho;
     setState(() {
       _isLoadingNearbyDrivers = true;
       _nearbyDriversMessage = "Đang tìm tài xế gần điểm đón...";
@@ -163,6 +177,7 @@ class _BookingScreenState extends State<BookingScreen> {
           diaChiDen: destination.text.trim(),
           diemDon: pickupLatLng,
           diemDen: destinationLatLng,
+          thanhPho: widget.thanhPho,
         ),
       ),
     );
@@ -183,10 +198,12 @@ class _BookingScreenState extends State<BookingScreen> {
 
   Future<void> getCurrentLocation() async {
     if (kIsWeb) {
+      final defaultPosition = _defaultPositionForCity(widget.thanhPho);
       setState(() {
-        currentPosition = LatLng(10.762622, 106.660172);
+        currentPosition = defaultPosition;
         pickupLatLng = currentPosition;
-        pickup.text = "10.762622, 106.660172";
+        pickup.text =
+            "${defaultPosition.latitude}, ${defaultPosition.longitude}";
       });
       mapController.move(currentPosition, 16);
       _loadNearbyDrivers(currentPosition);
