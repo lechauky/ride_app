@@ -75,7 +75,10 @@ function wrapPool(pool) {
 
 // 1. Nhận 4 chuỗi kết nối từ file .env
 const envPath = path.resolve(__dirname, '../.env');
-const envConfig = dotenv.parse(fs.readFileSync(envPath));
+const fileEnvConfig = fs.existsSync(envPath)
+  ? dotenv.parse(fs.readFileSync(envPath))
+  : {};
+const envConfig = { ...fileEnvConfig, ...process.env };
 
 function buildConfig(prefix) {
   return {
