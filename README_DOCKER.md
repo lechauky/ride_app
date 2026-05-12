@@ -66,16 +66,16 @@ Script seed tạo database, schema, tài khoản demo, tài xế, xe và dữ li
 ## Kiểm Tra API
 
 ```powershell
-curl http://localhost:5001/api/health
-curl http://localhost:5002/api/health
+curl.exe http://localhost:5001/api/health
+curl.exe http://localhost:5002/api/health
 ```
 
 Kiểm tra tài xế gần điểm đón:
 
 ```powershell
-curl -X POST http://localhost:5001/api/drivers/nearest `
+curl.exe -X POST "http://localhost:5001/api/drivers/nearest" `
   -H "Content-Type: application/json" `
-  -d "{\"latitude\":10.7769,\"longitude\":106.7009,\"thanh_pho\":\"HCM\",\"max_distance\":10,\"limit\":5}"
+  --data-raw '{"latitude":10.7769,"longitude":106.7009,"thanh_pho":"HCM","max_distance":10,"limit":5}'
 ```
 
 ## Tắt Hoặc Reset Dữ Liệu

@@ -60,8 +60,8 @@ Backend được expose ra máy host:
 Smoke test:
 
 ```powershell
-curl http://localhost:5001/api/health
-curl http://localhost:5002/api/health
+curl.exe http://localhost:5001/api/health
+curl.exe http://localhost:5002/api/health
 ```
 
 ## Seed Dữ Liệu Demo
@@ -153,14 +153,16 @@ Danh sách đầy đủ nằm trong `Danh_Sach_Tai_Khoan_Demo.txt`.
 
 ## Kiểm Tra API Tài Xế Gần Điểm Đón
 
-```powershell
-curl -X POST http://localhost:5001/api/drivers/nearest `
-  -H "Content-Type: application/json" `
-  -d "{\"latitude\":10.7769,\"longitude\":106.7009,\"thanh_pho\":\"HCM\",\"max_distance\":10,\"limit\":5}"
+PowerShell có alias `curl` trỏ tới `Invoke-WebRequest`, nên dùng `curl.exe` để gọi curl thật:
 
-curl -X POST http://localhost:5002/api/drivers/nearest `
+```powershell
+curl.exe -X POST "http://localhost:5001/api/drivers/nearest" `
   -H "Content-Type: application/json" `
-  -d "{\"latitude\":21.0285,\"longitude\":105.8542,\"thanh_pho\":\"HN\",\"max_distance\":10,\"limit\":5}"
+  --data-raw '{"latitude":10.7769,"longitude":106.7009,"thanh_pho":"HCM","max_distance":10,"limit":5}'
+
+curl.exe -X POST "http://localhost:5002/api/drivers/nearest" `
+  -H "Content-Type: application/json" `
+  --data-raw '{"latitude":21.0285,"longitude":105.8542,"thanh_pho":"HN","max_distance":10,"limit":5}'
 ```
 
 ## Xử Lý Lỗi Thường Gặp
