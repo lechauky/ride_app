@@ -57,11 +57,15 @@ Backend được expose ra máy host:
 | HCM | Backup | `http://localhost:6001/api` |
 | HN | Backup | `http://localhost:6002/api` |
 
+Port backup `6001/6002` dùng để demo chế độ chỉ đọc. Các request `GET` vẫn được phép, còn `POST/PUT/PATCH/DELETE` sẽ trả `503` với `read_only: true`.
+
 Smoke test:
 
 ```powershell
 curl.exe http://localhost:5001/api/health
 curl.exe http://localhost:5002/api/health
+curl.exe http://localhost:6001/api/health
+curl.exe http://localhost:6002/api/health
 ```
 
 ## Seed Dữ Liệu Demo
@@ -76,6 +80,15 @@ cd ..
 ```
 
 Seed tạo database, bảng, user demo, tài xế, xe và dữ liệu chuyến đi mẫu cho cả HCM/HN.
+
+Từ bản demo final, script seed không sinh random riêng cho replica nữa. Luồng seed là:
+
+1. Tạo schema và dữ liệu demo trên primary HCM/HN.
+2. Tạo schema replica HCM/HN.
+3. Copy dữ liệu từ primary sang replica tương ứng.
+4. Đặt database replica sang `READ_ONLY`.
+
+Như vậy khi tắt primary để demo failover, dữ liệu đọc từ replica khớp với dữ liệu đã seed trên primary tại thời điểm seed.
 
 ## Chạy Backend Ngoài Docker
 
@@ -166,6 +179,18 @@ curl.exe -X POST "http://localhost:5002/api/drivers/nearest" `
   -H "Content-Type: application/json" `
   --data-raw '{"latitude":21.0285,"longitude":105.8542,"thanh_pho":"HN","max_distance":10,"limit":5}'
 ```
+
+Kiểm tra backup port chặn ghi:
+
+```powershell
+curl.exe -X POST "http://localhost:6001/api/trips" `
+  -H "Content-Type: application/json" `
+  --data-raw '{"thanh_pho":"HCM"}'
+```
+
+Kết quả mong đợi: HTTP `503`, `success: false`, `read_only: true`.
+
+Sau khi khách đặt chuyến thành công, FE hiển thị trạng thái `Đang tìm tài xế`. Màn theo dõi chuyến gọi `GET /api/trips/:tripId/details?thanh_pho=HCM|HN` định kỳ để chỉ hiển thị thông tin tài xế/xe thật sau khi tài xế nhận chuyến.
 
 ## Xử Lý Lỗi Thường Gặp
 

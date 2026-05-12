@@ -16,6 +16,7 @@ Tài liệu này dùng để demo nhanh với giảng viên các luồng FE, BE,
   node database/seed-all.js
   cd ..
   ```
+  Script seed sẽ seed primary trước, copy dữ liệu sang replica cùng vùng, rồi đặt replica `READ_ONLY`.
 - Chạy Flutter web:
   ```powershell
   flutter run -d chrome
@@ -76,6 +77,8 @@ Mật khẩu chung: `123456`.
 - Tạo chuyến thành công.
 - Chuyến có `thanh_pho = HN`.
 - Backend tự đảm bảo user có mặt ở DB HN trước khi tạo trip.
+- Sau khi thanh toán, app hiển thị `Đang tìm tài xế`, không hiện tài xế/biển số giả.
+- Khi tài xế HN nhận chuyến, màn theo dõi chuyến tự cập nhật thông tin tài xế thật từ endpoint chi tiết chuyến.
 
 **API smoke nếu cần:**
 
@@ -86,6 +89,15 @@ curl.exe -X POST "http://localhost:5002/api/drivers/nearest" `
 ```
 
 **Nói với giảng viên:** User gốc có thể ở HCM, nhưng chuyến được ghi vào DB theo vùng đặt xe. Backend copy tối thiểu user sang DB đích để đảm bảo toàn vẹn khóa ngoại.
+
+**API kiểm tra chi tiết chuyến sau khi tạo:**
+
+```powershell
+curl.exe -X GET "http://localhost:5002/api/trips/<TRIP_ID>/details?thanh_pho=HN" `
+  -H "Authorization: Bearer <TOKEN_KHACH>"
+```
+
+**Kết quả mong đợi:** Nếu chưa có tài xế nhận, response vẫn `success: true` và `driver: null`; nếu đã có tài xế nhận, response có `driver` và `vehicle`.
 
 ## TC03 - Tài Xế HN Chỉ Thấy Chuyến HN
 
@@ -156,6 +168,20 @@ curl.exe -X POST "http://localhost:5002/api/drivers/nearest" `
 
 **Mục tiêu:** Chứng minh server phụ/replica chỉ cho xem, không cho ghi.
 
+**API chặn ghi trực tiếp trên backup port:**
+
+```powershell
+curl.exe -X POST "http://localhost:6001/api/trips" `
+  -H "Content-Type: application/json" `
+  --data-raw '{"thanh_pho":"HCM"}'
+
+curl.exe -X PUT "http://localhost:6002/api/drivers/available" `
+  -H "Content-Type: application/json" `
+  --data-raw '{"is_available":true,"thanh_pho":"HN"}'
+```
+
+**Kết quả mong đợi:** Cả hai request trả HTTP `503`, `success: false`, `read_only: true`.
+
 **Bước demo HCM:**
 
 1. Tắt primary HCM:
@@ -177,7 +203,7 @@ curl.exe -X POST "http://localhost:5002/api/drivers/nearest" `
   }
   ```
 
-**Nói với giảng viên:** Khi primary sập, backend chuyển sang replica nhưng wrapper DB chặn lệnh ghi như INSERT/UPDATE/DELETE, đảm bảo replica chỉ đọc.
+**Nói với giảng viên:** Khi primary sập, backend chuyển sang replica nhưng wrapper DB chặn lệnh ghi như INSERT/UPDATE/DELETE, đảm bảo replica chỉ đọc. Replica trong demo là bản copy sau seed, không phải replication realtime liên tục.
 
 ## TC07 - Khôi Phục Primary
 

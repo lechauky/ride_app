@@ -1,6 +1,6 @@
 # Docker Cho Cụm SQL Server Và Backend
 
-File `docker-compose.yml` chạy 4 SQL Server độc lập và 1 backend Node.js cho demo CSDL phân tán.
+File `docker-compose.yml` chạy 4 SQL Server 2022 độc lập và 1 backend Node.js cho demo CSDL phân tán.
 
 ## Bảng Port
 
@@ -26,6 +26,7 @@ Kết quả mong đợi:
 - 4 SQL Server container ở trạng thái `Up`.
 - `ride_app_backend` ở trạng thái `Up`.
 - API host truy cập được qua `localhost:5001`, `localhost:5002`, `localhost:6001`, `localhost:6002`.
+- Port backup `6001/6002` cho phép `GET`, nhưng chặn `POST/PUT/PATCH/DELETE` bằng HTTP `503 read_only`.
 
 ## Biến Môi Trường Backend Trong Docker
 
@@ -63,6 +64,15 @@ cd ..
 
 Script seed tạo database, schema, tài khoản demo, tài xế, xe và dữ liệu mẫu cho HCM/HN.
 
+Luồng seed final:
+
+1. Seed primary HCM và primary HN.
+2. Tạo schema replica HCM/HN.
+3. Copy dữ liệu từ primary sang replica cùng vùng.
+4. Set database replica thành `READ_ONLY`.
+
+Vì vậy replica là bản chụp dữ liệu demo sau seed, không phải replication realtime. Nếu tạo thêm chuyến mới sau seed rồi tắt primary ngay, chuyến mới đó có thể chưa có trong replica. Đây là giới hạn mô phỏng hợp lý cho demo môn học.
+
 ## Kiểm Tra API
 
 ```powershell
@@ -77,6 +87,16 @@ curl.exe -X POST "http://localhost:5001/api/drivers/nearest" `
   -H "Content-Type: application/json" `
   --data-raw '{"latitude":10.7769,"longitude":106.7009,"thanh_pho":"HCM","max_distance":10,"limit":5}'
 ```
+
+Kiểm tra backup port chỉ đọc:
+
+```powershell
+curl.exe -X POST "http://localhost:6001/api/trips" `
+  -H "Content-Type: application/json" `
+  --data-raw '{"thanh_pho":"HCM"}'
+```
+
+Kết quả mong đợi: HTTP `503`, response có `read_only: true`.
 
 ## Tắt Hoặc Reset Dữ Liệu
 
@@ -105,3 +125,8 @@ Backend sẽ chuyển request đọc sang replica HCM. Khôi phục:
 ```powershell
 docker start sql_nam_primary
 ```
+
+Trong thời gian primary sập:
+
+- Các API đọc có thể xem dữ liệu từ replica nếu dữ liệu đã có trong bản copy seed.
+- Các API ghi như tạo chuyến, nhận chuyến, từ chối chuyến, hoàn thành chuyến, bật/tắt trạng thái tài xế sẽ bị chặn với `503 read_only`.
