@@ -59,6 +59,21 @@ async function getNearestPendingTrips(req, res) {
   }
 }
 
+async function getTripDetails(req, res) {
+  try {
+    const result = await service.getTripDetails(req.params.tripId, req.query, req.user);
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    const readOnly = mapReadOnlyResult(error);
+    if (readOnly) return res.status(readOnly.status).json(readOnly.body);
+    return res.status(500).json({
+      success: false,
+      message: 'Lỗi lấy chi tiết chuyến đi',
+      error: error.message,
+    });
+  }
+}
+
 async function acceptTrip(req, res) {
   try {
     const result = await service.acceptTrip(req.params.tripId, req.user, req.body);
@@ -123,6 +138,7 @@ module.exports = {
   createTrip,
   getTripHistoryByUserId,
   getNearestPendingTrips,
+  getTripDetails,
   acceptTrip,
   rejectTrip,
   completeTrip,

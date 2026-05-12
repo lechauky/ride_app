@@ -150,6 +150,28 @@ function validateTripActionPayload(tripId, user, body) {
   };
 }
 
+function validateTripDetailsParams(tripId, query, user) {
+  const errors = [];
+  const thanh_pho = normalizeCity(query?.thanh_pho || user?.thanh_pho);
+
+  if (!tripId || !String(tripId).trim()) {
+    errors.push('tripId là bắt buộc');
+  }
+
+  if (!thanh_pho) {
+    errors.push('thanh_pho chỉ được là HCM hoặc HN');
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    normalized: {
+      tripId: String(tripId || '').trim(),
+      thanh_pho,
+    },
+  };
+}
+
 function validateRatingPayload(tripId, user, body) {
   const errors = [];
   const thanh_pho = normalizeCity(body?.thanh_pho || user?.thanh_pho);
@@ -231,6 +253,7 @@ module.exports = {
   validateCreateTripPayload,
   validateHistoryParams,
   validatePendingTripsParams,
+  validateTripDetailsParams,
   validateTripActionPayload,
   validateRatingPayload,
   normalizeCity,

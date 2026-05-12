@@ -3,6 +3,7 @@ const {
   validateCreateTripPayload,
   validateHistoryParams,
   validatePendingTripsParams,
+  validateTripDetailsParams,
   validateRatingPayload,
   validateTripActionPayload,
 } = require('./trips.validator');
@@ -88,6 +89,33 @@ async function getNearestPendingTrips(query, user) {
         ? `Tìm thấy ${trips.length} chuyến đang chờ`
         : 'Không có chuyến đang chờ',
       data: trips,
+    },
+  };
+}
+
+async function getTripDetails(tripId, query, user) {
+  const validation = validateTripDetailsParams(tripId, query, user);
+  if (!validation.valid) {
+    return {
+      status: 400,
+      body: { success: false, message: validation.errors.join(', ') },
+    };
+  }
+
+  const trip = await repository.getTripDetails(validation.normalized);
+  if (!trip) {
+    return {
+      status: 404,
+      body: { success: false, message: 'Không tìm thấy chuyến đi' },
+    };
+  }
+
+  return {
+    status: 200,
+    body: {
+      success: true,
+      message: 'Lấy chi tiết chuyến đi thành công',
+      data: trip,
     },
   };
 }
@@ -211,6 +239,7 @@ module.exports = {
   createTrip,
   getTripHistoryByUserId,
   getNearestPendingTrips,
+  getTripDetails,
   acceptTrip,
   rejectTrip,
   completeTrip,

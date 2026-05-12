@@ -421,6 +421,105 @@ async function getNearestPendingTrips({ thanh_pho, limit, latitude, longitude, d
   return mapped.slice(0, limit);
 }
 
+function mapTripDetails(row) {
+  const base = mapTripRequest(row, null, null);
+  const hasDriver = Boolean(row.ma_tai_xe);
+  return {
+    ...base,
+    trang_thai_thanh_toan: row.trang_thai_thanh_toan,
+    assignment: hasDriver
+      ? {
+          ma_tai_xe: row.ma_tai_xe,
+          trang_thai_nhan: row.trang_thai_nhan,
+          thoi_diem_phan_cong: row.thoi_diem_phan_cong,
+          thoi_diem_hoan_thanh: row.thoi_diem_hoan_thanh,
+        }
+      : null,
+    driver: hasDriver
+      ? {
+          id: row.ma_tai_xe,
+          ho_ten: row.ten_tai_xe,
+          so_dien_thoai: row.sdt_tai_xe,
+          diem_danh_gia: toNumber(row.diem_danh_gia_tai_xe) || 5,
+          vehicle: row.bien_so
+            ? {
+                loai_xe: row.loai_xe_tai_xe,
+                bien_so: row.bien_so,
+                hang_xe: row.hang_xe,
+                mau_xe: row.mau_xe,
+                nam_san_xuat: row.nam_san_xuat,
+              }
+            : null,
+        }
+      : null,
+  };
+}
+
+async function getTripDetails({ tripId, thanh_pho }) {
+  const pool = await getPrimaryConnection(thanh_pho);
+  const result = await pool.request()
+    .input('tripId', sql.UniqueIdentifier, tripId)
+    .input('thanh_pho', sql.VarChar(10), thanh_pho)
+    .query(`
+      SELECT TOP (1)
+        t.id AS ma_chuyen_di,
+        t.ma_nguoi_dung,
+        u.ho_ten AS ten_khach,
+        u.so_dien_thoai,
+        CAST(5.0 AS DECIMAL(4,2)) AS diem_danh_gia_khach,
+        t.ma_loai_dich_vu,
+        rt.ten_loai AS ten_loai_dich_vu,
+        t.vi_do_diem_don,
+        t.kinh_do_diem_don,
+        t.dia_chi_diem_don,
+        t.vi_do_diem_den,
+        t.kinh_do_diem_den,
+        t.dia_chi_diem_den,
+        t.khoang_cach_km,
+        p.so_tien,
+        p.phuong_thuc,
+        p.trang_thai AS trang_thai_thanh_toan,
+        t.trang_thai,
+        t.thanh_pho,
+        t.ngay_tao,
+        ta.ma_tai_xe,
+        ta.trang_thai_nhan,
+        ta.thoi_diem_phan_cong,
+        ta.thoi_diem_hoan_thanh,
+        d.ho_ten AS ten_tai_xe,
+        d.so_dien_thoai AS sdt_tai_xe,
+        drs.diem_trung_binh AS diem_danh_gia_tai_xe,
+        v.loai_xe AS loai_xe_tai_xe,
+        v.bien_so,
+        v.hang_xe,
+        v.mau_xe,
+        v.nam_san_xuat
+      FROM trips t
+      INNER JOIN users u ON u.id = t.ma_nguoi_dung
+      LEFT JOIN ride_types rt ON rt.id = t.ma_loai_dich_vu
+      LEFT JOIN payments p ON p.ma_chuyen_di = t.id
+      OUTER APPLY (
+        SELECT TOP (1)
+          ma_tai_xe,
+          trang_thai_nhan,
+          thoi_diem_phan_cong,
+          thoi_diem_hoan_thanh
+        FROM trip_assignments
+        WHERE ma_chuyen_di = t.id
+          AND trang_thai_nhan = 'da_nhan'
+        ORDER BY thoi_diem_phan_cong DESC
+      ) ta
+      LEFT JOIN drivers d ON d.id = ta.ma_tai_xe
+      LEFT JOIN vehicles v ON v.ma_tai_xe = d.id AND v.dang_hoat_dong = 1
+      LEFT JOIN vw_driver_rating_summary drs ON drs.ma_tai_xe = d.id
+      WHERE t.id = @tripId
+        AND t.thanh_pho = @thanh_pho
+    `);
+
+  const row = result.recordset[0] || null;
+  return row ? mapTripDetails(row) : null;
+}
+
 async function getDriverByUserId(transaction, driverUserId, thanh_pho) {
   const result = await new sql.Request(transaction)
     .input('ma_user', sql.UniqueIdentifier, driverUserId)
@@ -734,6 +833,7 @@ module.exports = {
   ensureTripUserInCity,
   getTripHistoryByUserId,
   getNearestPendingTrips,
+  getTripDetails,
   acceptTrip,
   rejectTrip,
   completeTrip,

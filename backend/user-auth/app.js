@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const userAuthRoutes = require('./modules/user-auth');
+const { READ_ONLY_HTTP_STATUS, buildReadOnlyResponse } = require('../utils/readOnly');
 
 // Mount thêm routes từ các service khác để chạy chung 1 port
 let tripsRoutes, driverAuthRoutes, notificationsRoutes;
@@ -20,11 +21,21 @@ try {
   console.warn('Notifications routes not found, skipping...');
 }
 
-function createApp() {
+function createApp(apiPort = process.env.PORT) {
   const app = express();
 
   app.use(cors());
   app.use(express.json());
+
+  app.use((req, res, next) => {
+    const port = Number(apiPort || req.socket.localPort);
+    const isBackupPort = port === 6001 || port === 6002;
+    const isWriteMethod = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
+    if (isBackupPort && isWriteMethod) {
+      return res.status(READ_ONLY_HTTP_STATUS).json(buildReadOnlyResponse());
+    }
+    return next();
+  });
 
   app.get('/api/health', (req, res) => {
     res.json({ success: true, message: 'Backend is running' });

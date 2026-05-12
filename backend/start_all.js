@@ -4,7 +4,7 @@ const createApp = require('./user-auth/app');
 const ports = [5001, 5002, 6001, 6002];
 
 ports.forEach(port => {
-  const app = createApp();
+  const app = createApp(port);
   app.listen(port, () => {
     let name = '';
     if (port === 5001) name = '[Miền Nam - Primary]';

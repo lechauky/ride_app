@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const {
   validateCreateTripPayload,
   validatePendingTripsParams,
+  validateTripDetailsParams,
 } = require('../trips/modules/trips/trips.validator');
 
 function validCreatePayload(overrides = {}) {
@@ -58,4 +59,17 @@ test('validatePendingTripsParams kiểm tra thành phố và tọa độ tài x�
   assert.equal(invalid.valid, false);
   assert.match(invalid.errors.join(', '), /thanh_pho/);
   assert.match(invalid.errors.join(', '), /latitude/);
+});
+
+test('validateTripDetailsParams yêu cầu tripId và thành phố hợp lệ', () => {
+  const ok = validateTripDetailsParams('9D4CC8F9-7A5C-4A53-8F18-6DF42A60B111', {
+    thanh_pho: 'HN',
+  });
+  const invalid = validateTripDetailsParams('', { thanh_pho: 'DN' });
+
+  assert.equal(ok.valid, true);
+  assert.equal(ok.normalized.thanh_pho, 'HN');
+  assert.equal(invalid.valid, false);
+  assert.match(invalid.errors.join(', '), /tripId/);
+  assert.match(invalid.errors.join(', '), /thanh_pho/);
 });
