@@ -9,8 +9,8 @@ const dbConfigs = {
 };
 
 const tables = [
-  'ratings', 'payments', 'trip_assignments', 'trips',
-  'driver_locations', 'vehicles', 'drivers', 'users'
+  'driver_location_logs', 'notifications', 'ratings', 'payments',
+  'trip_assignments', 'trips', 'vehicles', 'drivers', 'users', 'ride_types'
 ];
 
 async function syncData(primaryConf, replicaConf) {
@@ -18,9 +18,11 @@ async function syncData(primaryConf, replicaConf) {
   const poolPri = await sql.connect(primaryConf);
   const poolRep = await new sql.ConnectionPool(replicaConf).connect();
 
+  await poolRep.query(`USE [master]; ALTER DATABASE [${replicaConf.database}] SET READ_WRITE; USE [${replicaConf.database}];`);
+
   for (const table of tables) {
     console.log(`  -> Đang xóa dữ liệu bảng ${table} trên Replica...`);
-    await poolRep.query(`DELETE FROM ${table}`);
+    await poolRep.query(`DELETE FROM dbo.${table}`);
   }
 
   const tablesToSync = [...tables].reverse(); // Insert order: users, drivers, etc.
@@ -30,10 +32,13 @@ async function syncData(primaryConf, replicaConf) {
     const rows = r.recordset;
     if (rows.length === 0) continue;
 
+    const hasIdentity = table === 'driver_location_logs';
+    if (hasIdentity) await poolRep.query(`SET IDENTITY_INSERT dbo.${table} ON`);
+
     for (let i = 0; i < rows.length; i += 50) {
       const chunk = rows.slice(i, i + 50);
       const cols = Object.keys(chunk[0]);
-      let insertQuery = `INSERT INTO ${table} (${cols.join(', ')}) VALUES `;
+      let insertQuery = `INSERT INTO dbo.${table} (${cols.join(', ')}) VALUES `;
       let valuesArr = [];
       chunk.forEach(row => {
         const vals = cols.map(c => {
@@ -49,7 +54,11 @@ async function syncData(primaryConf, replicaConf) {
       insertQuery += valuesArr.join(', ');
       await poolRep.query(insertQuery);
     }
+
+    if (hasIdentity) await poolRep.query(`SET IDENTITY_INSERT dbo.${table} OFF`);
   }
+
+  await poolRep.query(`USE [master]; ALTER DATABASE [${replicaConf.database}] SET READ_ONLY;`);
 
   await poolPri.close();
   await poolRep.close();

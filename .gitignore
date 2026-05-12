@@ -48,19 +48,13 @@ app.*.map.json
 .ai_skills/
 *.pdf
 GEMINI.md
-README.md
 PhanCong_Nhom2_Backend.md
-backend/database/
 .cursorrules
 .cursor
-.gitignore
 
-# Tạm khóa các file chuyển đổi sang OpenStreetMap để không đẩy lên Git
-pubspec.yaml
-lib/screens/booking_screen.dart
-lib/screens/passenger_trip_screen.dart
-lib/screens/active_trip_screen.dart
-lib/screens/ride_types_screen.dart
-lib/screens/payment_screen.dart
-lib/screens/driver_home_screen.dart
-lib/services/active_trip_store.dart
+# Giữ dữ liệu runtime ngoài Git, nhưng cho phép schema/seed demo để người khác clone chạy được.
+backend/database/*
+!backend/database/
+!backend/database/02_schema_mssql.sql
+!backend/database/06_smoke_test_mssql.sql
+!backend/database/seed-all.js
