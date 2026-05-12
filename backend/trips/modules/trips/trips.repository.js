@@ -1,4 +1,9 @@
-const { sql, getPrimaryConnection, getReplicaConnection } = require('../../../config/database');
+const {
+  sql,
+  getPrimaryConnection,
+  getReplicaConnection,
+  assertWritableConnection,
+} = require('../../../config/database');
 
 function buildHistoryQuery() {
   return `
@@ -77,6 +82,7 @@ async function ensureTripUserInCity({
   sourceCity,
 }, deps = { getPrimaryConnection }) {
   const targetPool = await deps.getPrimaryConnection(targetCity);
+  assertWritableConnection(targetPool);
   const existing = await targetPool.request()
     .input('id', sql.UniqueIdentifier, userId)
     .query('SELECT TOP (1) id FROM users WHERE id = @id');
@@ -165,6 +171,7 @@ async function createTrip(payload) {
   });
 
   const pool = await getPrimaryConnection(payload.thanh_pho);
+  assertWritableConnection(pool);
   const transaction = new sql.Transaction(pool);
 
   await transaction.begin();
@@ -435,6 +442,7 @@ async function getDriverByUserId(transaction, driverUserId, thanh_pho) {
 
 async function acceptTrip({ tripId, driverUserId, thanh_pho }) {
   const pool = await getPrimaryConnection(thanh_pho);
+  assertWritableConnection(pool);
   const transaction = new sql.Transaction(pool);
 
   await transaction.begin();
@@ -529,6 +537,7 @@ async function acceptTrip({ tripId, driverUserId, thanh_pho }) {
 
 async function rejectTrip({ tripId, driverUserId, thanh_pho }) {
   const pool = await getPrimaryConnection(thanh_pho);
+  assertWritableConnection(pool);
   const transaction = new sql.Transaction(pool);
 
   await transaction.begin();
@@ -584,6 +593,7 @@ async function rejectTrip({ tripId, driverUserId, thanh_pho }) {
 
 async function completeTrip({ tripId, driverUserId, thanh_pho }) {
   const pool = await getPrimaryConnection(thanh_pho);
+  assertWritableConnection(pool);
   const transaction = new sql.Transaction(pool);
 
   await transaction.begin();

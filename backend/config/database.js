@@ -40,6 +40,13 @@ function isWriteQuery(queryText) {
   return WRITE_QUERY_REGEX.test(String(queryText));
 }
 
+function assertWritableConnection(pool) {
+  if (!pool?.__readOnly) return;
+  const error = new Error(READ_ONLY_MESSAGE);
+  error.code = 'READ_ONLY_MODE';
+  throw error;
+}
+
 function wrapPool(pool) {
   if (pool.__readOnlyWrapped) return pool;
   const originalRequest = pool.request.bind(pool);
@@ -185,5 +192,6 @@ module.exports = {
   getReplicaConnection,
   getPool: getPoolFallback,
   READ_ONLY_MESSAGE,
-  isWriteQuery
+  isWriteQuery,
+  assertWritableConnection
 };

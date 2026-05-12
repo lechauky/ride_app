@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { isWriteQuery } = require('../config/database');
+const { assertWritableConnection, isWriteQuery } = require('../config/database');
 const {
   READ_ONLY_HTTP_STATUS,
   isReadOnlyError,
@@ -39,4 +39,12 @@ test('lỗi kết nối primary được map thành HTTP 503 read-only', () => {
   assert.equal(result.body.success, false);
   assert.equal(result.body.read_only, true);
   assert.match(result.body.message, /chỉ xem/);
+});
+
+test('assertWritableConnection chặn ghi khi connection là replica', () => {
+  assert.doesNotThrow(() => assertWritableConnection({ __readOnly: false }));
+  assert.throws(
+    () => assertWritableConnection({ __readOnly: true }),
+    { code: 'READ_ONLY_MODE' },
+  );
 });
