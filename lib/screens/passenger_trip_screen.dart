@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../services/active_trip_store.dart';
+import '../services/api_service.dart';
 import 'home_screen.dart';
 import 'rating_screen.dart';
 
@@ -14,6 +16,24 @@ class PassengerTripScreen extends StatefulWidget {
 
 class _PassengerTripScreenState extends State<PassengerTripScreen> {
   final MapController mapController = MapController();
+  Timer? _detailTimer;
+  bool _isLoadingDetails = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadTripDetails());
+    _detailTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => _loadTripDetails(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _detailTimer?.cancel();
+    super.dispose();
+  }
 
   String _formatVND(int v) {
     final s = v.toString();
@@ -79,7 +99,31 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
     );
   }
 
+  Future<void> _loadTripDetails() async {
+    final trip = ActiveTripStore.currentTrip.value;
+    if (trip == null || _isLoadingDetails) return;
+
+    _isLoadingDetails = true;
+    try {
+      final query = Uri(queryParameters: {"thanh_pho": trip.thanhPho}).query;
+      final res = await ApiService.get(
+        "trips/${trip.maChuyenDi}/details?$query",
+        trip.thanhPho,
+      );
+      final data = res["data"];
+      final detail = data is Map ? data["data"] : null;
+      if (!mounted || data?["success"] != true || detail is! Map) return;
+
+      ActiveTripStore.updateTrip(
+        trip.mergeDetail(Map<String, dynamic>.from(detail)),
+      );
+    } finally {
+      _isLoadingDetails = false;
+    }
+  }
+
   void _completeAndRate(PassengerTripInfo t) {
+    if (!t.hasDriver) return;
     // Giả lập chuyến kết thúc → cho khách đánh giá tài xế
     ActiveTripStore.endTrip();
     Navigator.pushAndRemoveUntil(
@@ -160,7 +204,7 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
           ),
           body: Column(
             children: [
-              // Banner: Tài xế đã nhận cuốc
+              // Banner trạng thái chuyến
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
@@ -169,13 +213,15 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
                 ),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Colors.green.shade600, Colors.green.shade400],
+                    colors: trip.hasDriver
+                        ? [Colors.green.shade600, Colors.green.shade400]
+                        : [Colors.deepPurple, Colors.deepPurple.shade300],
                   ),
                 ),
                 child: Row(
                   children: [
-                    const Icon(
-                      Icons.check_circle,
+                    Icon(
+                      trip.hasDriver ? Icons.check_circle : Icons.search,
                       color: Colors.white,
                       size: 26,
                     ),
@@ -184,16 +230,20 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            "Tài xế đã nhận cuốc",
-                            style: TextStyle(
+                          Text(
+                            trip.hasDriver
+                                ? "Tài xế đã nhận cuốc"
+                                : "Đang tìm tài xế",
+                            style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
                               fontSize: 15,
                             ),
                           ),
                           Text(
-                            "Sẽ tới điểm đón sau ~ ${trip.etaPhut} phút",
+                            trip.hasDriver
+                                ? "Sẽ tới điểm đón sau ~ ${trip.etaPhut} phút"
+                                : "Chuyến đã được lưu, hệ thống đang chờ tài xế trong ${trip.thanhPho}",
                             style: const TextStyle(
                               color: Colors.white70,
                               fontSize: 12,
@@ -235,155 +285,162 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       // Card tài xế
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: Colors.grey.shade300),
-                        ),
-                        child: Column(
-                          children: [
-                            Row(
-                              children: [
-                                const CircleAvatar(
-                                  radius: 30,
-                                  backgroundColor: Colors.deepPurple,
-                                  child: Icon(
-                                    Icons.person,
-                                    color: Colors.white,
-                                    size: 32,
+                      if (!trip.hasDriver)
+                        _buildWaitingDriverCard(trip)
+                      else
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: Column(
+                            children: [
+                              Row(
+                                children: [
+                                  const CircleAvatar(
+                                    radius: 30,
+                                    backgroundColor: Colors.deepPurple,
+                                    child: Icon(
+                                      Icons.person,
+                                      color: Colors.white,
+                                      size: 32,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        trip.tenTaiXe,
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.star,
-                                            color: Colors.amber,
-                                            size: 14,
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          trip.tenTaiXe,
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
                                           ),
-                                          Text(
-                                            " ${trip.diemDanhGiaTaiXe}",
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.black54,
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Row(
+                                          children: [
+                                            const Icon(
+                                              Icons.star,
+                                              color: Colors.amber,
+                                              size: 14,
                                             ),
+                                            Text(
+                                              " ${trip.diemDanhGiaTaiXe}",
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.black54,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  IconButton(
+                                    onPressed: () {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text("Gọi ${trip.sdtTaiXe}"),
+                                        ),
+                                      );
+                                    },
+                                    icon: const Icon(
+                                      Icons.call,
+                                      color: Colors.green,
+                                    ),
+                                    style: IconButton.styleFrom(
+                                      backgroundColor: Colors.green.withValues(
+                                        alpha: 0.1,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  IconButton(
+                                    onPressed: () {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text("Mở khung chat"),
+                                        ),
+                                      );
+                                    },
+                                    icon: const Icon(
+                                      Icons.message,
+                                      color: Colors.blue,
+                                    ),
+                                    style: IconButton.styleFrom(
+                                      backgroundColor: Colors.blue.withValues(
+                                        alpha: 0.1,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const Divider(height: 22),
+                              Row(
+                                children: [
+                                  Icon(
+                                    trip.loaiXe.toLowerCase().contains("máy")
+                                        ? Icons.two_wheeler
+                                        : Icons.directions_car,
+                                    color: Colors.deepPurple,
+                                    size: 28,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          "${trip.hangXe} • ${trip.mauXe}",
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
                                           ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                IconButton(
-                                  onPressed: () {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text("Gọi ${trip.sdtTaiXe}"),
-                                      ),
-                                    );
-                                  },
-                                  icon: const Icon(
-                                    Icons.call,
-                                    color: Colors.green,
-                                  ),
-                                  style: IconButton.styleFrom(
-                                    backgroundColor: Colors.green.withValues(
-                                      alpha: 0.1,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                IconButton(
-                                  onPressed: () {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text("Mở khung chat"),
-                                      ),
-                                    );
-                                  },
-                                  icon: const Icon(
-                                    Icons.message,
-                                    color: Colors.blue,
-                                  ),
-                                  style: IconButton.styleFrom(
-                                    backgroundColor: Colors.blue.withValues(
-                                      alpha: 0.1,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const Divider(height: 22),
-                            Row(
-                              children: [
-                                Icon(
-                                  trip.loaiXe.toLowerCase().contains("máy")
-                                      ? Icons.two_wheeler
-                                      : Icons.directions_car,
-                                  color: Colors.deepPurple,
-                                  size: 28,
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        "${trip.hangXe} • ${trip.mauXe}",
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w500,
                                         ),
-                                      ),
-                                      Text(
-                                        trip.bienSo,
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          color: Colors.black54,
-                                          letterSpacing: 1.2,
+                                        Text(
+                                          trip.bienSo,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: Colors.black54,
+                                            letterSpacing: 1.2,
+                                          ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.deepPurple.shade50,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    trip.loaiXe,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.deepPurple,
-                                      fontWeight: FontWeight.w600,
+                                      ],
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
-                          ],
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.deepPurple.shade50,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      trip.loaiXe,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.deepPurple,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
                       const SizedBox(height: 12),
 
                       // Card lộ trình
@@ -452,20 +509,22 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
                       const SizedBox(height: 14),
 
                       // Hành động
-                      OutlinedButton.icon(
-                        onPressed: () => _completeAndRate(trip),
-                        icon: const Icon(Icons.flag),
-                        label: const Text("Đã hoàn thành chuyến (giả lập)"),
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(46),
-                          foregroundColor: Colors.green,
-                          side: const BorderSide(color: Colors.green),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                      if (trip.hasDriver) ...[
+                        OutlinedButton.icon(
+                          onPressed: () => _completeAndRate(trip),
+                          icon: const Icon(Icons.flag),
+                          label: const Text("Đã hoàn thành chuyến (demo)"),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(46),
+                            foregroundColor: Colors.green,
+                            side: const BorderSide(color: Colors.green),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
+                        const SizedBox(height: 8),
+                      ],
                       TextButton.icon(
                         onPressed: _cancelTrip,
                         icon: const Icon(Icons.cancel, color: Colors.red),
@@ -510,6 +569,51 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildWaitingDriverCard(PassengerTripInfo trip) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.deepPurple.shade50,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.deepPurple.shade100),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(
+            width: 28,
+            height: 28,
+            child: CircularProgressIndicator(strokeWidth: 2.6),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Đang tìm tài xế gần điểm đón",
+                  style: TextStyle(
+                    color: Colors.deepPurple,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "Khu vực ${trip.thanhPho}. Màn hình sẽ tự cập nhật khi tài xế nhận chuyến.",
+                  style: const TextStyle(fontSize: 12, color: Colors.black54),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: "Tải lại trạng thái chuyến",
+            onPressed: _loadTripDetails,
+            icon: const Icon(Icons.refresh, color: Colors.deepPurple),
+          ),
+        ],
+      ),
     );
   }
 

@@ -387,9 +387,10 @@ class _BookingScreenState extends State<BookingScreen> {
             ),
           ),
           Expanded(
-            child: Padding(
+            child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   ElevatedButton.icon(
                     onPressed: getCurrentLocation,

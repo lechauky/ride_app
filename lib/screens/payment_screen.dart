@@ -80,6 +80,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   /// Khởi tạo thông tin chuyến hiển thị sau khi DB tạo chuyến thành công.
+  String _cityLabel(String city) {
+    return city == "HN" ? "Hà Nội" : "TP.HCM";
+  }
+
   PassengerTripInfo _createTrip(Map<String, dynamic>? dbTrip) {
     final maChuyen =
         (dbTrip?["id"] ??
@@ -88,16 +92,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
             .toString();
     return PassengerTripInfo(
       maChuyenDi: maChuyen,
-      tenTaiXe: "Nguyễn Văn A",
-      sdtTaiXe: "0901 234 567",
-      diemDanhGiaTaiXe: 4.9,
-      bienSo: widget.tenLoaiXe.toLowerCase().contains("máy")
-          ? "59X1-234.56"
-          : "51A-678.90",
-      hangXe: widget.tenLoaiXe.toLowerCase().contains("máy")
-          ? "Honda Wave"
-          : "Toyota Vios",
-      mauXe: "Đen",
+      thanhPho: widget.thanhPho,
+      trangThai: (dbTrip?["trang_thai"] ?? "cho_xu_ly").toString(),
+      hasDriver: false,
+      tenTaiXe: "Đang tìm tài xế",
+      sdtTaiXe: "",
+      diemDanhGiaTaiXe: 0,
+      bienSo: "",
+      hangXe: "",
+      mauXe: "",
       loaiXe: widget.tenLoaiXe,
       diaChiDon: widget.diaChiDon ?? "Vị trí đón hiện tại",
       diaChiDen: widget.diaChiDen ?? "Điểm đến đã chọn",
@@ -106,7 +109,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       khoangCachKm: widget.khoangCachKm,
       tongTien: widget.tongTien,
       phuongThucThanhToan: methods[selected].ten,
-      etaPhut: 5,
+      etaPhut: 0,
     );
   }
 
@@ -136,7 +139,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
       if (!mounted) return;
       setState(() => isProcessing = false);
 
-      if (res["data"] != null && res["data"]["success"] == true) {
+      final responseData = res["data"];
+      if (responseData != null && responseData["success"] == true) {
+        final isCash = methods[selected].id == "tien_mat";
         showDialog(
           context: context,
           barrierDismissible: false,
@@ -145,10 +150,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
               borderRadius: BorderRadius.circular(18),
             ),
             title: Row(
-              children: const [
-                Icon(Icons.check_circle, color: Colors.green, size: 28),
-                SizedBox(width: 8),
-                Text("Thanh toán thành công"),
+              children: [
+                const Icon(Icons.check_circle, color: Colors.green, size: 28),
+                const SizedBox(width: 8),
+                Text(
+                  isCash ? "Đặt chuyến thành công" : "Thanh toán thành công",
+                ),
               ],
             ),
             content: Column(
@@ -156,16 +163,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "Bạn đã thanh toán ${_formatVND(widget.tongTien)} bằng ${methods[selected].ten}.",
+                  isCash
+                      ? "Chuyến đi đã được tạo. Bạn sẽ thanh toán ${_formatVND(widget.tongTien)} bằng tiền mặt khi kết thúc chuyến."
+                      : "Bạn đã thanh toán ${_formatVND(widget.tongTien)} bằng ${methods[selected].ten}.",
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  "Mã giao dịch: #${res["data"]["data"]?["id"] ?? DateTime.now().millisecondsSinceEpoch}",
+                  "Mã chuyến: #${responseData["data"]?["id"] ?? DateTime.now().millisecondsSinceEpoch}",
                   style: const TextStyle(fontSize: 12, color: Colors.black54),
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  "Hệ thống đang tìm tài xế cho bạn…",
+                  "Hệ thống đang tìm tài xế thật trong khu vực đã chọn...",
                   style: TextStyle(fontSize: 13, fontStyle: FontStyle.italic),
                 ),
               ],
@@ -179,8 +188,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 onPressed: () {
                   Navigator.pop(context); // đóng dialog
 
-                  // Lưu chuyến vào store và mở màn thông tin tài xế
-                  final trip = _createTrip(res["data"]["data"]);
+                  // Lưu chuyến vào store và mở màn theo dõi tìm tài xế.
+                  final trip = _createTrip(responseData["data"]);
                   ActiveTripStore.startTrip(trip);
 
                   Navigator.pushAndRemoveUntil(
@@ -191,15 +200,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     (r) => false,
                   );
                 },
-                child: const Text("Xem tài xế"),
+                child: const Text("Theo dõi chuyến"),
               ),
             ],
           ),
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(res["data"]?["message"] ?? "Lỗi tạo chuyến")),
-        );
+        final message = responseData?["read_only"] == true
+            ? "Server chính đang bảo trì: chỉ xem dữ liệu, không thể đặt chuyến lúc primary sập."
+            : responseData?["message"] ?? "Lỗi tạo chuyến";
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
       }
     } catch (e) {
       if (mounted) setState(() => isProcessing = false);
@@ -256,6 +268,21 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     const SizedBox(width: 6),
                     Text(
                       widget.tenLoaiXe,
+                      style: const TextStyle(color: Colors.white70),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.location_city,
+                      color: Colors.white70,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      "Khu vực đặt xe: ${_cityLabel(widget.thanhPho)}",
                       style: const TextStyle(color: Colors.white70),
                     ),
                   ],

@@ -180,7 +180,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    "Tài xế ${trip.tenTaiXe} • ${trip.bienSo}",
+                                    trip.hasDriver
+                                        ? "Tài xế ${trip.tenTaiXe} • ${trip.bienSo}"
+                                        : "Đang tìm tài xế trong ${trip.thanhPho}",
                                     style: const TextStyle(
                                       color: Colors.white70,
                                       fontSize: 12,
