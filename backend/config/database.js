@@ -184,5 +184,6 @@ module.exports = {
   getPrimaryConnection,
   getReplicaConnection,
   getPool: getPoolFallback,
-  READ_ONLY_MESSAGE
+  READ_ONLY_MESSAGE,
+  isWriteQuery
 };

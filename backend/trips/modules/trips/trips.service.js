@@ -6,8 +6,10 @@ const {
   validateRatingPayload,
   validateTripActionPayload,
 } = require('./trips.validator');
+const { mapReadOnlyResult } = require('../../../utils/readOnly');
 
 function mapActionError(error) {
+  if (mapReadOnlyResult(error)) return 503;
   if (error.code === 'DRIVER_NOT_FOUND') return 404;
   if (error.code === 'TRIP_NOT_FOUND') return 404;
   if (error.code === 'TRIP_NOT_AVAILABLE') return 409;
@@ -24,7 +26,14 @@ async function createTrip(payload) {
     };
   }
 
-  const trip = await repository.createTrip(validation.normalized);
+  let trip;
+  try {
+    trip = await repository.createTrip(validation.normalized);
+  } catch (error) {
+    const readOnly = mapReadOnlyResult(error);
+    if (readOnly) return readOnly;
+    throw error;
+  }
 
   return {
     status: 201,
@@ -103,6 +112,8 @@ async function acceptTrip(tripId, user, body) {
       },
     };
   } catch (error) {
+    const readOnly = mapReadOnlyResult(error);
+    if (readOnly) return readOnly;
     return {
       status: mapActionError(error),
       body: { success: false, message: error.message },
@@ -130,6 +141,8 @@ async function rejectTrip(tripId, user, body) {
       },
     };
   } catch (error) {
+    const readOnly = mapReadOnlyResult(error);
+    if (readOnly) return readOnly;
     return {
       status: mapActionError(error),
       body: { success: false, message: error.message },
@@ -157,6 +170,8 @@ async function completeTrip(tripId, user, body) {
       },
     };
   } catch (error) {
+    const readOnly = mapReadOnlyResult(error);
+    if (readOnly) return readOnly;
     return {
       status: mapActionError(error),
       body: { success: false, message: error.message },
@@ -173,7 +188,14 @@ async function saveRating(tripId, user, body) {
     };
   }
 
-  const rating = await repository.saveRating(validation.normalized);
+  let rating;
+  try {
+    rating = await repository.saveRating(validation.normalized);
+  } catch (error) {
+    const readOnly = mapReadOnlyResult(error);
+    if (readOnly) return readOnly;
+    throw error;
+  }
 
   return {
     status: 200,

@@ -47,6 +47,78 @@ function estimateFare(rideType, distanceKm) {
   return Math.round(12000 + distance * 4000);
 }
 
+function otherCity(city) {
+  return city === 'HN' ? 'HCM' : 'HN';
+}
+
+async function findUserWithPassword(userId, city, deps = { getPrimaryConnection }) {
+  const pool = await deps.getPrimaryConnection(city);
+  const result = await pool.request()
+    .input('id', sql.UniqueIdentifier, userId)
+    .query(`
+      SELECT TOP (1)
+        id,
+        ho_ten,
+        email,
+        mat_khau,
+        so_dien_thoai,
+        thanh_pho,
+        vai_tro
+      FROM users
+      WHERE id = @id
+    `);
+
+  return result.recordset[0] || null;
+}
+
+async function ensureTripUserInCity({
+  userId,
+  targetCity,
+  sourceCity,
+}, deps = { getPrimaryConnection }) {
+  const targetPool = await deps.getPrimaryConnection(targetCity);
+  const existing = await targetPool.request()
+    .input('id', sql.UniqueIdentifier, userId)
+    .query('SELECT TOP (1) id FROM users WHERE id = @id');
+
+  if (existing.recordset[0]) {
+    return { created: false, city: targetCity };
+  }
+
+  const sourceCities = [...new Set([
+    sourceCity,
+    otherCity(targetCity),
+    targetCity,
+  ].filter(Boolean))];
+
+  let sourceUser = null;
+  for (const city of sourceCities) {
+    sourceUser = await findUserWithPassword(userId, city, deps);
+    if (sourceUser) break;
+  }
+
+  if (!sourceUser) {
+    const error = new Error('Không tìm thấy tài khoản khách để tạo chuyến');
+    error.code = 'USER_NOT_FOUND';
+    throw error;
+  }
+
+  await targetPool.request()
+    .input('id', sql.UniqueIdentifier, sourceUser.id)
+    .input('ho_ten', sql.NVarChar(100), sourceUser.ho_ten)
+    .input('email', sql.NVarChar(150), sourceUser.email)
+    .input('mat_khau', sql.NVarChar(255), sourceUser.mat_khau)
+    .input('so_dien_thoai', sql.VarChar(15), sourceUser.so_dien_thoai || null)
+    .input('thanh_pho', sql.VarChar(10), targetCity)
+    .input('vai_tro', sql.VarChar(10), sourceUser.vai_tro || 'user')
+    .query(`
+      INSERT INTO users (id, ho_ten, email, mat_khau, so_dien_thoai, thanh_pho, vai_tro)
+      VALUES (@id, @ho_ten, @email, @mat_khau, @so_dien_thoai, @thanh_pho, @vai_tro)
+    `);
+
+  return { created: true, city: targetCity };
+}
+
 function mapTripRequest(row, latitude, longitude) {
   const pickupLat = toNumber(row.vi_do_diem_don);
   const pickupLon = toNumber(row.kinh_do_diem_don);
@@ -86,6 +158,12 @@ function mapTripRequest(row, latitude, longitude) {
 }
 
 async function createTrip(payload) {
+  await ensureTripUserInCity({
+    userId: payload.ma_nguoi_dung,
+    targetCity: payload.thanh_pho,
+    sourceCity: payload.ma_nguoi_dung_thanh_pho,
+  });
+
   const pool = await getPrimaryConnection(payload.thanh_pho);
   const transaction = new sql.Transaction(pool);
 
@@ -643,6 +721,7 @@ async function saveRating({
 
 module.exports = {
   createTrip,
+  ensureTripUserInCity,
   getTripHistoryByUserId,
   getNearestPendingTrips,
   acceptTrip,

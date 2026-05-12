@@ -87,6 +87,7 @@ function validateCreateTripPayload(payload) {
         ? String(body.trang_thai_thanh_toan).trim()
         : 'cho_thanh_toan',
       thanh_pho,
+      ma_nguoi_dung_thanh_pho: normalizeCity(body.ma_nguoi_dung_thanh_pho),
       trang_thai: body.trang_thai ? String(body.trang_thai).trim() : 'cho_xu_ly',
     },
   };

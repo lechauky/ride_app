@@ -3,6 +3,17 @@
 // Nhiệm vụ: Nhận HTTP Request, gọi Service, trả Response
 // ===========================================
 const service = require('./driver-auth.service');
+const { mapReadOnlyResult } = require('../../../utils/readOnly');
+
+function sendError(res, error) {
+  const readOnly = mapReadOnlyResult(error);
+  if (readOnly) return res.status(readOnly.status).json(readOnly.body);
+
+  return res.status(400).json({
+    success: false,
+    message: error.message
+  });
+}
 
 // Cập nhật vị trí tài xế
 async function updateLocation(req, res) {
@@ -19,10 +30,7 @@ async function updateLocation(req, res) {
 
     return res.status(200).json(result);
   } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: error.message
-    });
+    return sendError(res, error);
   }
 }
 
@@ -42,10 +50,7 @@ async function findNearestDrivers(req, res) {
 
     return res.status(200).json(result);
   } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: error.message
-    });
+    return sendError(res, error);
   }
 }
 
@@ -58,10 +63,7 @@ async function getAvailableDrivers(req, res) {
 
     return res.status(200).json(result);
   } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: error.message
-    });
+    return sendError(res, error);
   }
 }
 
@@ -77,10 +79,7 @@ async function updateAvailability(req, res) {
 
     return res.status(200).json(result);
   } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: error.message
-    });
+    return sendError(res, error);
   }
 }
 
@@ -104,10 +103,7 @@ async function getProfile(req, res) {
 
     return res.status(200).json(result);
   } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: error.message
-    });
+    return sendError(res, error);
   }
 }
 
@@ -121,10 +117,7 @@ async function saveVehicle(req, res) {
 
     return res.status(200).json(result);
   } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: error.message
-    });
+    return sendError(res, error);
   }
 }
 
