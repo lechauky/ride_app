@@ -65,3 +65,42 @@ docker stop sql_nam_primary
 # Khôi phục lại:
 docker start sql_nam_primary
 ```
+
+## 7. URL demo FE - BE - DB
+
+Compose hiện tại dùng 5 container: 4 SQL Server và 1 backend Node.
+
+Chạy đầy đủ:
+
+```bash
+docker compose up -d --build
+```
+
+Backend expose ra máy host:
+
+| Miền | API | DB host port | DB trong Docker |
+| :--- | :--- | :--- | :--- |
+| Nam primary | `http://localhost:5001/api` | `50011` | `mssql-nam-primary:1433` |
+| Bac primary | `http://localhost:5002/api` | `50021` | `mssql-bac-primary:1433` |
+| Nam backup | `http://localhost:6001/api` | `60011` | `mssql-nam-replica:1433` |
+| Bac backup | `http://localhost:6002/api` | `60021` | `mssql-bac-replica:1433` |
+
+Kiểm tra nhanh:
+
+```bash
+curl http://localhost:5001/api/health
+curl http://localhost:5002/api/health
+```
+
+Flutter web dùng mặc định `localhost`, Android emulator dùng mặc định `10.0.2.2`.
+Nếu demo bằng điện thoại thật, truyền LAN IP của máy chạy Docker:
+
+```bash
+flutter run --dart-define=API_HOST=192.168.1.10
+```
+
+Nếu đổi port API:
+
+```bash
+flutter run --dart-define=API_HOST=192.168.1.10 --dart-define=API_NAM_PRIMARY_PORT=5001 --dart-define=API_BAC_PRIMARY_PORT=5002
+```
