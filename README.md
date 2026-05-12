@@ -153,6 +153,8 @@ Danh sách đầy đủ nằm trong `Danh_Sach_Tai_Khoan_Demo.txt`.
 
 ## Kiểm Tra API Tài Xế Gần Điểm Đón
 
+Các bước test demo đầy đủ nằm trong `TEST_CASES_DEMO.md`.
+
 PowerShell có alias `curl` trỏ tới `Invoke-WebRequest`, nên dùng `curl.exe` để gọi curl thật:
 
 ```powershell
