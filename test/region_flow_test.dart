@@ -73,6 +73,7 @@ void main() {
           khoangCachKm: 2,
           diaChiDon: 'Hồ Gươm',
           diaChiDen: 'Cầu Giấy',
+          loadDriverCounts: false,
         ),
       ),
     );
@@ -88,12 +89,36 @@ void main() {
     tester,
   ) async {
     AuthStore.currentUser.value = _user(city: 'HCM', role: 1);
-    await tester.pumpWidget(_app(const DriverHomeScreen(enablePolling: false)));
+    await tester.pumpWidget(
+      _app(
+        const DriverHomeScreen(enablePolling: false, loadDriverProfile: false),
+      ),
+    );
     expect(find.text('Khu vực hoạt động: TP.HCM'), findsOneWidget);
 
     AuthStore.currentUser.value = _user(city: 'HN', role: 1);
-    await tester.pumpWidget(_app(const DriverHomeScreen(enablePolling: false)));
+    await tester.pumpWidget(
+      _app(
+        const DriverHomeScreen(enablePolling: false, loadDriverProfile: false),
+      ),
+    );
     expect(find.text('Khu vực hoạt động: Hà Nội'), findsOneWidget);
+  });
+
+  testWidgets('màn tài xế đổi icon và nhãn theo loại xe', (tester) async {
+    AuthStore.currentUser.value = _user(city: 'HCM', role: 1);
+    await tester.pumpWidget(
+      _app(
+        const DriverHomeScreen(
+          enablePolling: false,
+          loadDriverProfile: false,
+          initialVehicleType: 'o_to_7_cho',
+        ),
+      ),
+    );
+
+    expect(find.text('Phương tiện: Ô tô 7 chỗ'), findsOneWidget);
+    expect(find.byIcon(Icons.airport_shuttle), findsOneWidget);
   });
 
   test('TripRequest parse khu vực và khoảng cách tới tài xế', () {
@@ -141,4 +166,23 @@ void main() {
     final rating = tester.widget<RatingScreen>(find.byType(RatingScreen));
     expect(rating.thanhPho, 'HN');
   });
+
+  testWidgets(
+    'RideTypesScreen hiển thị số tài xế khả dụng theo dữ liệu truyền vào',
+    (tester) async {
+      await tester.pumpWidget(
+        _app(
+          const RideTypesScreen(
+            thanhPho: 'HCM',
+            loadDriverCounts: false,
+            initialDriverCounts: {'bike': 8, 'car4': 5, 'car7': 2},
+          ),
+        ),
+      );
+
+      expect(find.text(' 8'), findsOneWidget);
+      expect(find.text(' 5'), findsOneWidget);
+      expect(find.text(' 2'), findsOneWidget);
+    },
+  );
 }

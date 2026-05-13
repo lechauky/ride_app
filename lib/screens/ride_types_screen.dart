@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
+import '../services/api_service.dart';
 import 'payment_screen.dart';
 
 class RideType {
@@ -30,6 +31,8 @@ class RideTypesScreen extends StatefulWidget {
   final LatLng? diemDon;
   final LatLng? diemDen;
   final String thanhPho;
+  final bool loadDriverCounts;
+  final Map<String, int>? initialDriverCounts;
 
   const RideTypesScreen({
     super.key,
@@ -39,6 +42,8 @@ class RideTypesScreen extends StatefulWidget {
     this.diemDon,
     this.diemDen,
     this.thanhPho = "HCM",
+    this.loadDriverCounts = true,
+    this.initialDriverCounts,
   });
 
   @override
@@ -77,6 +82,17 @@ class _RideTypesScreenState extends State<RideTypesScreen> {
   ];
 
   int selectedIndex = 0;
+  Map<String, int>? _availableDriverCounts;
+  bool _isLoadingDriverCounts = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _availableDriverCounts = widget.initialDriverCounts;
+    if (widget.loadDriverCounts) {
+      _loadAvailableDriverCounts();
+    }
+  }
 
   String _formatVND(int v) {
     final s = v.toString();
@@ -90,6 +106,56 @@ class _RideTypesScreenState extends State<RideTypesScreen> {
 
   int _tongTien(RideType t) =>
       (t.giaCoBan + (t.giaMoiKm * widget.khoangCachKm)).toInt();
+
+  Future<void> _loadAvailableDriverCounts() async {
+    setState(() => _isLoadingDriverCounts = true);
+    try {
+      final res = await ApiService.post("drivers/available", widget.thanhPho, {
+        "thanh_pho": widget.thanhPho,
+      });
+      final data = res["data"];
+      final items = data is Map ? data["data"] : null;
+      final counts = <String, int>{"bike": 0, "car4": 0, "car7": 0};
+
+      if (items is List) {
+        for (final item in items) {
+          if (item is! Map) continue;
+          final vehicle = item["vehicle"];
+          final vehicleMap = vehicle is Map ? vehicle : null;
+          final loaiXe = vehicleMap?["loai_xe"]?.toString();
+          final rideType = _vehicleTypeToRideType(loaiXe);
+          if (rideType != null) {
+            counts[rideType] = (counts[rideType] ?? 0) + 1;
+          }
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _availableDriverCounts = counts;
+        _isLoadingDriverCounts = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _availableDriverCounts = null;
+        _isLoadingDriverCounts = false;
+      });
+    }
+  }
+
+  String? _vehicleTypeToRideType(String? loaiXe) {
+    if (loaiXe == "xe_may") return "bike";
+    if (loaiXe == "o_to_4_cho") return "car4";
+    if (loaiXe == "o_to_7_cho") return "car7";
+    return null;
+  }
+
+  String _driverCountLabel(RideType type) {
+    if (_isLoadingDriverCounts && _availableDriverCounts == null) return "...";
+    final count = _availableDriverCounts?[type.id];
+    return count == null ? "-" : count.toString();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -214,7 +280,7 @@ class _RideTypesScreenState extends State<RideTypesScreen> {
                                           color: Colors.black54,
                                         ),
                                         Text(
-                                          " ${t.sucChua}",
+                                          " ${_driverCountLabel(t)}",
                                           style: const TextStyle(fontSize: 12),
                                         ),
                                       ],

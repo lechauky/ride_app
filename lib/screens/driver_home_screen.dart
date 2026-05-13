@@ -13,8 +13,15 @@ import 'active_trip_screen.dart';
 
 class DriverHomeScreen extends StatefulWidget {
   final bool enablePolling;
+  final bool loadDriverProfile;
+  final String? initialVehicleType;
 
-  const DriverHomeScreen({super.key, this.enablePolling = true});
+  const DriverHomeScreen({
+    super.key,
+    this.enablePolling = true,
+    this.loadDriverProfile = true,
+    this.initialVehicleType,
+  });
 
   @override
   State<DriverHomeScreen> createState() => _DriverHomeScreenState();
@@ -28,10 +35,15 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   int countdown = 15; // 15 giây để quyết định nhận / từ chối
   bool isLoadingRequest = false;
   bool isUpdatingRequest = false;
+  String? _vehicleType;
 
   @override
   void initState() {
     super.initState();
+    _vehicleType = widget.initialVehicleType;
+    if (widget.loadDriverProfile) {
+      _loadDriverProfile();
+    }
     if (widget.enablePolling) {
       _loadIncomingRequest();
       _requestTimer = Timer.periodic(const Duration(seconds: 8), (_) {
@@ -39,6 +51,27 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
           _loadIncomingRequest();
         }
       });
+    }
+  }
+
+  Future<void> _loadDriverProfile() async {
+    final user = AuthStore.currentUser.value;
+    if (user == null) return;
+
+    try {
+      final res = await ApiService.get(
+        'drivers/me?thanh_pho=${user.thanhPho}',
+        user.thanhPho,
+      );
+      final data = res["data"];
+      final vehicle = data?["data"]?["vehicle"];
+      if (!mounted || data?["success"] != true || vehicle == null) return;
+
+      setState(() {
+        _vehicleType = vehicle["loai_xe"]?.toString();
+      });
+    } catch (_) {
+      // Không tải được hồ sơ xe thì vẫn giữ màn tài xế hoạt động bình thường.
     }
   }
 
@@ -241,6 +274,19 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     return city == "HN" ? "Hà Nội" : "TP.HCM";
   }
 
+  IconData _vehicleIcon(String? type) {
+    if (type == "xe_may") return Icons.two_wheeler;
+    if (type == "o_to_7_cho") return Icons.airport_shuttle;
+    return Icons.directions_car;
+  }
+
+  String _vehicleLabel(String? type) {
+    if (type == "xe_may") return "Xe máy";
+    if (type == "o_to_7_cho") return "Ô tô 7 chỗ";
+    if (type == "o_to_4_cho") return "Ô tô 4 chỗ";
+    return "Chưa cập nhật phương tiện";
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = AuthStore.currentUser.value;
@@ -293,11 +339,11 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
               ),
               child: Row(
                 children: [
-                  const CircleAvatar(
+                  CircleAvatar(
                     radius: 32,
                     backgroundColor: Colors.white,
                     child: Icon(
-                      Icons.drive_eta,
+                      _vehicleIcon(_vehicleType),
                       color: Colors.deepPurple,
                       size: 32,
                     ),
@@ -322,6 +368,11 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                         const SizedBox(height: 4),
                         Text(
                           "Khu vực hoạt động: $cityLabel",
+                          style: const TextStyle(color: Colors.white70),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          "Phương tiện: ${_vehicleLabel(_vehicleType)}",
                           style: const TextStyle(color: Colors.white70),
                         ),
                         const SizedBox(height: 2),
@@ -398,7 +449,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                       MaterialPageRoute(
                         builder: (_) => const VehicleInfoScreen(),
                       ),
-                    );
+                    ).then((_) {
+                      if (mounted) _loadDriverProfile();
+                    });
                   },
                 ),
                 _menu(
