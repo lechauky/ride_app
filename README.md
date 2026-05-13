@@ -122,7 +122,7 @@ Android emulator mặc định gọi backend host qua `10.0.2.2`, không dùng `
 
 ## Chạy Trên Điện Thoại Thật
 
-Điện thoại thật không truy cập được `10.0.2.2`. Máy tính chạy Docker/backend và điện thoại phải cùng mạng Wi-Fi. Lấy IP LAN của máy tính, ví dụ `192.168.1.20`, rồi chạy:
+Điện thoại thật không truy cập được `10.0.2.2`. Máy host chạy Docker/backend và điện thoại phải cùng mạng Wi-Fi. Lấy IP LAN của máy host, ví dụ `192.168.1.20`, rồi chạy:
 
 ```powershell
 flutter run --dart-define=API_HOST=192.168.1.20

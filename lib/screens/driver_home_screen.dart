@@ -15,12 +15,18 @@ class DriverHomeScreen extends StatefulWidget {
   final bool enablePolling;
   final bool loadDriverProfile;
   final String? initialVehicleType;
+  final double? initialRatingAverage;
+  final int? initialRatingCount;
+  final int? initialCompletedTrips;
 
   const DriverHomeScreen({
     super.key,
     this.enablePolling = true,
     this.loadDriverProfile = true,
     this.initialVehicleType,
+    this.initialRatingAverage,
+    this.initialRatingCount,
+    this.initialCompletedTrips,
   });
 
   @override
@@ -36,11 +42,17 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   bool isLoadingRequest = false;
   bool isUpdatingRequest = false;
   String? _vehicleType;
+  double? _ratingAverage;
+  int? _ratingCount;
+  int? _completedTrips;
 
   @override
   void initState() {
     super.initState();
     _vehicleType = widget.initialVehicleType;
+    _ratingAverage = widget.initialRatingAverage;
+    _ratingCount = widget.initialRatingCount;
+    _completedTrips = widget.initialCompletedTrips;
     if (widget.loadDriverProfile) {
       _loadDriverProfile();
     }
@@ -65,10 +77,17 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       );
       final data = res["data"];
       final vehicle = data?["data"]?["vehicle"];
-      if (!mounted || data?["success"] != true || vehicle == null) return;
+      final profile = data?["data"];
+      final rating = profile?["rating"];
+      if (!mounted || data?["success"] != true) return;
 
       setState(() {
-        _vehicleType = vehicle["loai_xe"]?.toString();
+        if (vehicle != null) {
+          _vehicleType = vehicle["loai_xe"]?.toString();
+        }
+        _completedTrips = _readInt(profile?["tong_so_chuyen"]);
+        _ratingAverage = _readDouble(rating?["diem_trung_binh"]);
+        _ratingCount = _readInt(rating?["so_luot_danh_gia"]);
       });
     } catch (_) {
       // Không tải được hồ sơ xe thì vẫn giữ màn tài xế hoạt động bình thường.
@@ -274,6 +293,19 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     return city == "HN" ? "Hà Nội" : "TP.HCM";
   }
 
+  int? _readInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.round();
+    return int.tryParse(value.toString());
+  }
+
+  double? _readDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString());
+  }
+
   IconData _vehicleIcon(String? type) {
     if (type == "xe_may") return Icons.two_wheeler;
     if (type == "o_to_7_cho") return Icons.airport_shuttle;
@@ -285,6 +317,15 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     if (type == "o_to_7_cho") return "Ô tô 7 chỗ";
     if (type == "o_to_4_cho") return "Ô tô 4 chỗ";
     return "Chưa cập nhật phương tiện";
+  }
+
+  String _driverStatsLabel() {
+    final trips = _completedTrips ?? 0;
+    final tripLabel = "$trips chuyến";
+    if (_ratingAverage == null || (_ratingCount ?? 0) == 0) {
+      return "Chưa có đánh giá • $tripLabel";
+    }
+    return "⭐ ${_ratingAverage!.toStringAsFixed(1)} • $tripLabel";
   }
 
   @override
@@ -376,9 +417,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                           style: const TextStyle(color: Colors.white70),
                         ),
                         const SizedBox(height: 2),
-                        const Text(
-                          "⭐ 4.9 • 234 chuyến",
-                          style: TextStyle(color: Colors.white70),
+                        Text(
+                          _driverStatsLabel(),
+                          style: const TextStyle(color: Colors.white70),
                         ),
                       ],
                     ),
@@ -488,7 +529,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                   onTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text("Mở lịch sử chuyến của tài xế"),
+                        content: Text(
+                          "Lịch sử tài xế chưa dùng trong demo này",
+                        ),
                       ),
                     );
                   },

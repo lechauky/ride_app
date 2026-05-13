@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
+import '../services/auth_store.dart';
 
 class AppNotification {
   final String id;
   final String tieuDe;
   final String noiDung;
-  final String loai; // dat_xe | huy_xe | hoan_thanh | he_thong
+  final String loai;
   final DateTime thoiGian;
   bool daDoc;
 
@@ -16,6 +18,19 @@ class AppNotification {
     required this.thoiGian,
     this.daDoc = false,
   });
+
+  factory AppNotification.fromJson(Map<String, dynamic> json) {
+    return AppNotification(
+      id: json["id"]?.toString() ?? "",
+      tieuDe: json["tieu_de"]?.toString() ?? "Thông báo",
+      noiDung: json["noi_dung"]?.toString() ?? "",
+      loai: json["loai"]?.toString() ?? "he_thong",
+      thoiGian:
+          DateTime.tryParse(json["ngay_gui"]?.toString() ?? "") ??
+          DateTime.now(),
+      daDoc: json["da_doc"] == true || json["da_doc"] == 1,
+    );
+  }
 }
 
 class NotificationsScreen extends StatefulWidget {
@@ -26,57 +41,49 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  late List<AppNotification> items;
+  List<AppNotification> items = [];
+  bool isLoading = true;
+  bool isUpdating = false;
+
+  String get _city => AuthStore.currentUser.value?.thanhPho ?? "HCM";
 
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
-    items = [
-      AppNotification(
-        id: "1",
-        tieuDe: "Tài xế đã đến điểm đón",
-        noiDung:
-            "Tài xế Nguyễn Văn A (59X1-234.56) đã đến vị trí đón của bạn.",
-        loai: "dat_xe",
-        thoiGian: now.subtract(const Duration(minutes: 3)),
-      ),
-      AppNotification(
-        id: "2",
-        tieuDe: "Chuyến đi hoàn thành",
-        noiDung:
-            "Chuyến đi từ Quận 1 đến Quận 7 đã hoàn tất. Cảm ơn bạn đã sử dụng dịch vụ!",
-        loai: "hoan_thanh",
-        thoiGian: now.subtract(const Duration(hours: 2)),
-        daDoc: true,
-      ),
-      AppNotification(
-        id: "3",
-        tieuDe: "Khuyến mãi 30%",
-        noiDung:
-            "Nhập mã RIDE30 để được giảm 30% cho 3 chuyến tiếp theo của bạn.",
-        loai: "he_thong",
-        thoiGian: now.subtract(const Duration(hours: 5)),
-      ),
-      AppNotification(
-        id: "4",
-        tieuDe: "Chuyến đi bị hủy",
-        noiDung:
-            "Tài xế đã hủy chuyến đi của bạn. Hệ thống đang tìm tài xế khác.",
-        loai: "huy_xe",
-        thoiGian: now.subtract(const Duration(days: 1)),
-        daDoc: true,
-      ),
-      AppNotification(
-        id: "5",
-        tieuDe: "Cập nhật hệ thống",
-        noiDung:
-            "Ride App đã cập nhật phiên bản mới với nhiều tính năng hấp dẫn.",
-        loai: "he_thong",
-        thoiGian: now.subtract(const Duration(days: 2)),
-        daDoc: true,
-      ),
-    ];
+    _fetchNotifications();
+  }
+
+  Future<void> _fetchNotifications() async {
+    setState(() => isLoading = true);
+    try {
+      final res = await ApiService.get(
+        "notifications?thanh_pho=$_city&limit=50",
+        _city,
+      );
+      final data = res["data"];
+      final list = data is Map ? data["data"] : null;
+      if (!mounted) return;
+      setState(() {
+        items = list is List
+            ? list
+                  .whereType<Map>()
+                  .map(
+                    (item) => AppNotification.fromJson(
+                      Map<String, dynamic>.from(item),
+                    ),
+                  )
+                  .where((item) => item.id.isNotEmpty)
+                  .toList()
+            : [];
+        isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        items = [];
+        isLoading = false;
+      });
+    }
   }
 
   IconData _iconFor(String loai) {
@@ -115,12 +122,58 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return "${diff.inDays} ngày trước";
   }
 
-  void _markAllRead() {
-    setState(() {
-      for (final n in items) {
-        n.daDoc = true;
-      }
+  Future<void> _markAllRead() async {
+    if (isUpdating) return;
+    setState(() => isUpdating = true);
+    final res = await ApiService.put("notifications/read-all", _city, {
+      "thanh_pho": _city,
     });
+    if (!mounted) return;
+    setState(() => isUpdating = false);
+
+    if (res["data"]?["success"] == true) {
+      setState(() {
+        for (final n in items) {
+          n.daDoc = true;
+        }
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            res["data"]?["message"] ?? "Không thể cập nhật thông báo",
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _markRead(AppNotification n) async {
+    if (n.daDoc) return;
+    final res = await ApiService.put("notifications/${n.id}/read", _city, {
+      "thanh_pho": _city,
+    });
+    if (!mounted) return;
+    if (res["data"]?["success"] == true) {
+      setState(() => n.daDoc = true);
+    }
+  }
+
+  Future<void> _deleteNotification(AppNotification n) async {
+    final previous = [...items];
+    setState(() => items.removeWhere((item) => item.id == n.id));
+    final res = await ApiService.delete("notifications/${n.id}", _city, {
+      "thanh_pho": _city,
+    });
+    if (!mounted) return;
+    if (res["data"]?["success"] != true) {
+      setState(() => items = previous);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(res["data"]?["message"] ?? "Không thể xoá thông báo"),
+        ),
+      );
+    }
   }
 
   @override
@@ -132,9 +185,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            tooltip: "Tải lại",
+            onPressed: isLoading ? null : _fetchNotifications,
+            icon: const Icon(Icons.refresh),
+          ),
           if (unread > 0)
             TextButton(
-              onPressed: _markAllRead,
+              onPressed: isUpdating ? null : _markAllRead,
               child: const Text(
                 "Đọc tất cả",
                 style: TextStyle(color: Colors.white),
@@ -142,16 +200,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             ),
         ],
       ),
-      body: items.isEmpty
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : items.isEmpty
           ? const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.notifications_off,
-                      size: 70, color: Colors.grey),
+                  Icon(Icons.notifications_off, size: 70, color: Colors.grey),
                   SizedBox(height: 12),
-                  Text("Chưa có thông báo nào",
-                      style: TextStyle(color: Colors.black54)),
+                  Text(
+                    "Chưa có thông báo nào",
+                    style: TextStyle(color: Colors.black54),
+                  ),
                 ],
               ),
             )
@@ -171,7 +232,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 Expanded(
                   child: ListView.separated(
                     itemCount: items.length,
-                    separatorBuilder: (_, __) =>
+                    separatorBuilder: (_, _) =>
                         const Divider(height: 1, indent: 72),
                     itemBuilder: (_, i) {
                       final n = items[i];
@@ -182,28 +243,25 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           color: Colors.red,
                           alignment: Alignment.centerRight,
                           padding: const EdgeInsets.only(right: 20),
-                          child: const Icon(Icons.delete,
-                              color: Colors.white),
+                          child: const Icon(Icons.delete, color: Colors.white),
                         ),
-                        onDismissed: (_) {
-                          setState(() => items.removeAt(i));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                                content:
-                                    Text("Đã xoá: ${n.tieuDe}")),
-                          );
-                        },
+                        onDismissed: (_) => _deleteNotification(n),
                         child: Container(
                           color: n.daDoc
                               ? Colors.white
-                              : Colors.deepPurple.shade50
-                                  .withValues(alpha: 0.5),
+                              : Colors.deepPurple.shade50.withValues(
+                                  alpha: 0.5,
+                                ),
                           child: ListTile(
+                            onTap: () => _markRead(n),
                             leading: CircleAvatar(
-                              backgroundColor:
-                                  _colorFor(n.loai).withValues(alpha: 0.15),
-                              child: Icon(_iconFor(n.loai),
-                                  color: _colorFor(n.loai)),
+                              backgroundColor: _colorFor(
+                                n.loai,
+                              ).withValues(alpha: 0.15),
+                              child: Icon(
+                                _iconFor(n.loai),
+                                color: _colorFor(n.loai),
+                              ),
                             ),
                             title: Text(
                               n.tieuDe,
@@ -214,19 +272,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               ),
                             ),
                             subtitle: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const SizedBox(height: 2),
-                                Text(n.noiDung,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis),
+                                Text(
+                                  n.noiDung,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                                 const SizedBox(height: 4),
                                 Text(
                                   _timeAgo(n.thoiGian),
                                   style: const TextStyle(
-                                      fontSize: 11,
-                                      color: Colors.black54),
+                                    fontSize: 11,
+                                    color: Colors.black54,
+                                  ),
                                 ),
                               ],
                             ),
@@ -240,23 +300,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                       shape: BoxShape.circle,
                                     ),
                                   ),
-                            onTap: () {
-                              setState(() => n.daDoc = true);
-                              showDialog(
-                                context: context,
-                                builder: (_) => AlertDialog(
-                                  title: Text(n.tieuDe),
-                                  content: Text(n.noiDung),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () =>
-                                          Navigator.pop(context),
-                                      child: const Text("Đóng"),
-                                    )
-                                  ],
-                                ),
-                              );
-                            },
                           ),
                         ),
                       );

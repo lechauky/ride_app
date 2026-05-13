@@ -444,7 +444,11 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
                         IconButton(
                           onPressed: () {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("Mở khung chat")),
+                              const SnackBar(
+                                content: Text(
+                                  "Tính năng chat không dùng trong demo này",
+                                ),
+                              ),
                             );
                           },
                           icon: const Icon(Icons.message, color: Colors.blue),

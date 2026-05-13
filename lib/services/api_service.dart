@@ -144,4 +144,37 @@ class ApiService {
       }
     }
   }
+
+  static Future<Map<String, dynamic>> delete(
+    String endpoint,
+    String city,
+    Map data,
+  ) async {
+    String primary = getPrimary(city);
+    String backup = getBackup(city);
+
+    try {
+      final res = await http.delete(
+        Uri.parse("$primary/$endpoint"),
+        headers: _getHeaders(),
+        body: jsonEncode(data),
+      );
+      return {"data": jsonDecode(res.body), "isBackup": false};
+    } catch (e) {
+      debugPrint("Primary fail -> backup DELETE");
+      try {
+        final res = await http.delete(
+          Uri.parse("$backup/$endpoint"),
+          headers: _getHeaders(),
+          body: jsonEncode(data),
+        );
+        return {"data": jsonDecode(res.body), "isBackup": true};
+      } catch (backupErr) {
+        return {
+          "data": {"success": false, "message": "Mất kết nối hoàn toàn"},
+          "isBackup": true,
+        };
+      }
+    }
+  }
 }

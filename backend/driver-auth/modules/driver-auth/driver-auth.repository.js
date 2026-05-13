@@ -242,11 +242,13 @@ async function getDriverProfile(driverId, thanh_pho = 'HCM') {
         .query(`
           SELECT d.id, d.ho_ten, d.so_dien_thoai, d.vi_do_hien_tai, d.kinh_do_hien_tai,
                  d.is_available, d.thanh_pho, d.tong_so_chuyen, d.ngay_tao,
+                 drs.diem_trung_binh, drs.so_luot_danh_gia,
                  u.email, u.vai_tro,
                  v.id as vehicle_id, v.loai_xe, v.bien_so, v.hang_xe, v.mau_xe, v.nam_san_xuat
           FROM drivers d
           LEFT JOIN users u ON d.ma_user = u.id
           LEFT JOIN vehicles v ON d.id = v.ma_tai_xe AND v.dang_hoat_dong = 1
+          LEFT JOIN vw_driver_rating_summary drs ON drs.ma_tai_xe = d.id
           WHERE d.id = @driver_id
         `)
     );
@@ -266,11 +268,13 @@ async function getDriverProfileByUserId(userId, thanh_pho = 'HCM') {
         .query(`
           SELECT d.id, d.ho_ten, d.so_dien_thoai, d.vi_do_hien_tai, d.kinh_do_hien_tai,
                  d.is_available, d.thanh_pho, d.tong_so_chuyen, d.ngay_tao,
+                 drs.diem_trung_binh, drs.so_luot_danh_gia,
                  u.email, u.vai_tro,
                  v.id as vehicle_id, v.loai_xe, v.bien_so, v.hang_xe, v.mau_xe, v.nam_san_xuat
           FROM drivers d
           LEFT JOIN users u ON d.ma_user = u.id
           LEFT JOIN vehicles v ON d.id = v.ma_tai_xe AND v.dang_hoat_dong = 1
+          LEFT JOIN vw_driver_rating_summary drs ON drs.ma_tai_xe = d.id
           WHERE d.ma_user = @ma_user AND d.thanh_pho = @thanh_pho
         `)
     );

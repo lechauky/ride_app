@@ -206,6 +206,12 @@ function mapProfile(driver) {
       is_available: driver.is_available === 1 || driver.is_available === true,
       thanh_pho: driver.thanh_pho,
       tong_so_chuyen: driver.tong_so_chuyen,
+      rating: {
+        diem_trung_binh: driver.diem_trung_binh === null || driver.diem_trung_binh === undefined
+          ? null
+          : Number(driver.diem_trung_binh),
+        so_luot_danh_gia: Number(driver.so_luot_danh_gia || 0)
+      },
       ngay_tao: driver.ngay_tao,
       vehicle: driver.vehicle_id ? {
         id: driver.vehicle_id,

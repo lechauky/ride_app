@@ -126,7 +126,9 @@ class PassengerTripInfo {
       mauXe: assigned && vehicleMap != null
           ? _readString(vehicleMap, "mau_xe", mauXe)
           : mauXe,
-      loaiXe: _readString(json, "ten_loai_dich_vu", loaiXe),
+      loaiXe: assigned && vehicleMap != null
+          ? _vehicleTypeLabel(_readString(vehicleMap, "loai_xe", loaiXe))
+          : _readString(json, "ten_loai_dich_vu", loaiXe),
       diaChiDon: _readString(json, "dia_chi_diem_don", diaChiDon),
       diaChiDen: _readString(json, "dia_chi_diem_den", diaChiDen),
       diemDon:
@@ -186,6 +188,13 @@ class PassengerTripInfo {
     if (id == 'the_ngan_hang') return 'Thẻ ngân hàng';
     if (id == 'tien_mat') return 'Tiền mặt';
     return id;
+  }
+
+  static String _vehicleTypeLabel(String type) {
+    if (type == 'xe_may') return 'Xe máy';
+    if (type == 'o_to_4_cho') return 'Ô tô 4 chỗ';
+    if (type == 'o_to_7_cho') return 'Ô tô 7 chỗ';
+    return type;
   }
 }
 

@@ -228,8 +228,8 @@ curl.exe -X PUT "http://localhost:6002/api/drivers/available" `
 ## Lệnh Verify Nhanh
 
 ```powershell
-C:\Users\ASUS\flutter\bin\flutter.bat analyze --no-fatal-infos
-C:\Users\ASUS\flutter\bin\flutter.bat test
+flutter analyze --no-fatal-infos
+flutter test
 cd backend
 npm test
 cd ..

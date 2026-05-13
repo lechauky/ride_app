@@ -7,6 +7,7 @@ import 'package:ride_app/screens/home_screen.dart';
 import 'package:ride_app/screens/payment_screen.dart';
 import 'package:ride_app/screens/rating_screen.dart';
 import 'package:ride_app/screens/ride_types_screen.dart';
+import 'package:ride_app/services/active_trip_store.dart';
 import 'package:ride_app/services/auth_store.dart';
 import 'package:ride_app/services/location_service.dart';
 
@@ -113,12 +114,53 @@ void main() {
           enablePolling: false,
           loadDriverProfile: false,
           initialVehicleType: 'o_to_7_cho',
+          initialRatingAverage: 4.57,
+          initialRatingCount: 7,
+          initialCompletedTrips: 12,
         ),
       ),
     );
 
     expect(find.text('Phương tiện: Ô tô 7 chỗ'), findsOneWidget);
+    expect(find.text('⭐ 4.6 • 12 chuyến'), findsOneWidget);
     expect(find.byIcon(Icons.airport_shuttle), findsOneWidget);
+  });
+
+  test('PassengerTripInfo lấy loại xe tài xế từ trip detail', () {
+    final trip =
+        PassengerTripInfo(
+          maChuyenDi: 'trip-1',
+          thanhPho: 'HCM',
+          tenTaiXe: '',
+          sdtTaiXe: '',
+          diemDanhGiaTaiXe: 5,
+          bienSo: '',
+          hangXe: '',
+          mauXe: '',
+          loaiXe: 'Ô tô 4 chỗ',
+          diaChiDon: 'Điểm đón',
+          diaChiDen: 'Điểm đến',
+          diemDon: null,
+          diemDen: null,
+          khoangCachKm: 1,
+          tongTien: 10000,
+          phuongThucThanhToan: 'Tiền mặt',
+          etaPhut: 5,
+        ).mergeDetail({
+          'driver': {
+            'ho_ten': 'Tài xế 7 chỗ',
+            'vehicle': {
+              'loai_xe': 'o_to_7_cho',
+              'bien_so': '30A-77777',
+              'hang_xe': 'Ford',
+              'mau_xe': 'Đen',
+            },
+          },
+        });
+
+    expect(trip.loaiXe, 'Ô tô 7 chỗ');
+    expect(trip.bienSo, '30A-77777');
+    expect(trip.hangXe, 'Ford');
   });
 
   test('TripRequest parse khu vực và khoảng cách tới tài xế', () {

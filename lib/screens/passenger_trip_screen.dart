@@ -46,6 +46,13 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
     return "${buf.toString()}₫";
   }
 
+  IconData _vehicleIcon(String loaiXe) {
+    final value = loaiXe.toLowerCase();
+    if (value.contains("máy")) return Icons.two_wheeler;
+    if (value.contains("7")) return Icons.airport_shuttle;
+    return Icons.directions_car;
+  }
+
   List<Marker> _markers(PassengerTripInfo t) {
     final s = <Marker>[];
     if (t.diemDon != null) {
@@ -415,7 +422,9 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
                                         context,
                                       ).showSnackBar(
                                         const SnackBar(
-                                          content: Text("Mở khung chat"),
+                                          content: Text(
+                                            "Tính năng chat không dùng trong demo này",
+                                          ),
                                         ),
                                       );
                                     },
@@ -435,9 +444,7 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
                               Row(
                                 children: [
                                   Icon(
-                                    trip.loaiXe.toLowerCase().contains("máy")
-                                        ? Icons.two_wheeler
-                                        : Icons.directions_car,
+                                    _vehicleIcon(trip.loaiXe),
                                     color: Colors.deepPurple,
                                     size: 28,
                                   ),

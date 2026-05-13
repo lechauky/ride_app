@@ -34,6 +34,19 @@ function toNumber(value) {
   return Number.isFinite(number) ? number : null;
 }
 
+async function readPrimaryThenReplica(thanh_pho, runQuery) {
+  try {
+    const primaryPool = await getPrimaryConnection(thanh_pho);
+    const primaryResult = await runQuery(primaryPool);
+    if (primaryResult.recordset.length > 0) return primaryResult;
+  } catch (_) {
+    // Nếu primary sập, các màn xem dữ liệu demo vẫn đọc từ replica.
+  }
+
+  const replicaPool = await getReplicaConnection(thanh_pho);
+  return await runQuery(replicaPool);
+}
+
 function calculateDistanceKm(lat1, lon1, lat2, lon2) {
   const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -456,11 +469,11 @@ function mapTripDetails(row) {
 }
 
 async function getTripDetails({ tripId, thanh_pho }) {
-  const pool = await getPrimaryConnection(thanh_pho);
-  const result = await pool.request()
-    .input('tripId', sql.UniqueIdentifier, tripId)
-    .input('thanh_pho', sql.VarChar(10), thanh_pho)
-    .query(`
+  const result = await readPrimaryThenReplica(thanh_pho, (pool) =>
+    pool.request()
+      .input('tripId', sql.UniqueIdentifier, tripId)
+      .input('thanh_pho', sql.VarChar(10), thanh_pho)
+      .query(`
       SELECT TOP (1)
         t.id AS ma_chuyen_di,
         t.ma_nguoi_dung,
@@ -514,7 +527,8 @@ async function getTripDetails({ tripId, thanh_pho }) {
       LEFT JOIN vw_driver_rating_summary drs ON drs.ma_tai_xe = d.id
       WHERE t.id = @tripId
         AND t.thanh_pho = @thanh_pho
-    `);
+    `)
+  );
 
   const row = result.recordset[0] || null;
   return row ? mapTripDetails(row) : null;
