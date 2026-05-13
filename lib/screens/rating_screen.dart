@@ -18,6 +18,7 @@ class RatingScreen extends StatefulWidget {
   /// Thông tin phụ (vd: biển số xe khi đánh giá tài xế, SĐT khi đánh giá khách)
   final String? targetSubInfo;
   final String? tripId;
+  final String? thanhPho;
 
   const RatingScreen({
     super.key,
@@ -25,6 +26,7 @@ class RatingScreen extends StatefulWidget {
     this.targetName,
     this.targetSubInfo,
     this.tripId,
+    this.thanhPho,
   });
 
   @override
@@ -44,13 +46,13 @@ class _RatingScreenState extends State<RatingScreen> {
   String get _targetLabel => _isPassenger ? "khách hàng" : "tài xế";
 
   String get _name =>
-      widget.targetName ?? (_isPassenger ? "Trần Thị B" : "Nguyễn Văn A");
+      widget.targetName ?? (_isPassenger ? "Khách hàng" : "Tài xế chuyến đi");
 
   String get _subInfo =>
       widget.targetSubInfo ??
-      (_isPassenger
-          ? "0987 654 321 • Chuyến #12345"
-          : "Honda Wave • 59X1-234.56");
+      (widget.tripId != null
+          ? "Chuyến #${widget.tripId}"
+          : "Chưa có thông tin chuyến");
 
   IconData get _subIcon => _isPassenger ? Icons.phone : Icons.directions_car;
 
@@ -124,7 +126,7 @@ class _RatingScreenState extends State<RatingScreen> {
 
     if (widget.tripId != null) {
       final user = AuthStore.currentUser.value;
-      final city = user?.thanhPho ?? "HCM";
+      final city = widget.thanhPho ?? user?.thanhPho ?? "HCM";
       final res = await ApiService.post("trips/${widget.tripId}/rating", city, {
         "thanh_pho": city,
         "loai_nguoi_danh_gia": _isPassenger ? "driver" : "user",

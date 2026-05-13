@@ -18,6 +18,7 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
   final MapController mapController = MapController();
   Timer? _detailTimer;
   bool _isLoadingDetails = false;
+  bool _ratingPromptShown = false;
 
   @override
   void initState() {
@@ -114,17 +115,17 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
       final detail = data is Map ? data["data"] : null;
       if (!mounted || data?["success"] != true || detail is! Map) return;
 
-      ActiveTripStore.updateTrip(
-        trip.mergeDetail(Map<String, dynamic>.from(detail)),
-      );
+      final updated = trip.mergeDetail(Map<String, dynamic>.from(detail));
+      ActiveTripStore.updateTrip(updated);
+      if (updated.trangThai == "hoan_thanh" && updated.hasDriver) {
+        _showCompletedRatingPrompt(updated);
+      }
     } finally {
       _isLoadingDetails = false;
     }
   }
 
-  void _completeAndRate(PassengerTripInfo t) {
-    if (!t.hasDriver) return;
-    // Giả lập chuyến kết thúc → cho khách đánh giá tài xế
+  void _openDriverRating(PassengerTripInfo t) {
     ActiveTripStore.endTrip();
     Navigator.pushAndRemoveUntil(
       context,
@@ -132,11 +133,57 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
         builder: (_) => RatingScreen(
           target: RatingTarget.driver,
           tripId: t.maChuyenDi,
+          thanhPho: t.thanhPho,
           targetName: t.tenTaiXe,
           targetSubInfo: "${t.hangXe} • ${t.bienSo}",
         ),
       ),
       (r) => false,
+    );
+  }
+
+  void _showCompletedRatingPrompt(PassengerTripInfo t) {
+    if (_ratingPromptShown || !mounted) return;
+    _ratingPromptShown = true;
+    _detailTimer?.cancel();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green, size: 26),
+            SizedBox(width: 8),
+            Text("Chuyến đã hoàn thành"),
+          ],
+        ),
+        content: Text(
+          "Tài xế ${t.tenTaiXe} đã hoàn thành chuyến đi.\nBạn có thể đánh giá tài xế để lưu phản hồi vào hệ thống.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ActiveTripStore.endTrip();
+              _goHome();
+            },
+            child: const Text("Bỏ qua"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.deepPurple,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              Navigator.pop(context);
+              _openDriverRating(t);
+            },
+            child: const Text("Đánh giá tài xế"),
+          ),
+        ],
+      ),
     );
   }
 
@@ -509,22 +556,6 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
                       const SizedBox(height: 14),
 
                       // Hành động
-                      if (trip.hasDriver) ...[
-                        OutlinedButton.icon(
-                          onPressed: () => _completeAndRate(trip),
-                          icon: const Icon(Icons.flag),
-                          label: const Text("Đã hoàn thành chuyến (demo)"),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size.fromHeight(46),
-                            foregroundColor: Colors.green,
-                            side: const BorderSide(color: Colors.green),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                      ],
                       TextButton.icon(
                         onPressed: _cancelTrip,
                         icon: const Icon(Icons.cancel, color: Colors.red),

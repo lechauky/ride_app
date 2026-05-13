@@ -5,6 +5,7 @@ import 'package:ride_app/screens/booking_screen.dart';
 import 'package:ride_app/screens/driver_home_screen.dart';
 import 'package:ride_app/screens/home_screen.dart';
 import 'package:ride_app/screens/payment_screen.dart';
+import 'package:ride_app/screens/rating_screen.dart';
 import 'package:ride_app/screens/ride_types_screen.dart';
 import 'package:ride_app/services/auth_store.dart';
 import 'package:ride_app/services/location_service.dart';
@@ -115,5 +116,29 @@ void main() {
     expect(trip.diemDon.latitude, 21.028511);
     expect(trip.diemDon.longitude, 105.854165);
     expect(trip.khoangCachDenTaiXeKm, 1.23);
+  });
+
+  testWidgets('RatingScreen không dùng tên tài xế hoặc khách mẫu cố định', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        const RatingScreen(
+          target: RatingTarget.driver,
+          tripId: 'trip-1',
+          thanhPho: 'HN',
+          targetName: 'Tài xế Hà Nội',
+          targetSubInfo: 'VinFast • 30A-12345',
+        ),
+      ),
+    );
+
+    expect(find.text('Tài xế Hà Nội'), findsOneWidget);
+    expect(find.text('VinFast • 30A-12345'), findsOneWidget);
+    expect(find.text('Nguyễn Văn A'), findsNothing);
+    expect(find.text('Trần Thị B'), findsNothing);
+
+    final rating = tester.widget<RatingScreen>(find.byType(RatingScreen));
+    expect(rating.thanhPho, 'HN');
   });
 }

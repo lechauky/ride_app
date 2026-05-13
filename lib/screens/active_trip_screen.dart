@@ -207,6 +207,8 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
         return;
       }
 
+      setState(() => trangThai = 2);
+
       // Hoàn thành chuyến → mời tài xế đánh giá khách
       showDialog(
         context: context,
@@ -250,6 +252,7 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
                     builder: (_) => RatingScreen(
                       target: RatingTarget.passenger,
                       tripId: widget.trip.maChuyenDi,
+                      thanhPho: widget.trip.thanhPho,
                       targetName: widget.trip.tenKhach,
                       targetSubInfo:
                           "${widget.trip.soDienThoai} • Chuyến #${widget.trip.maChuyenDi}",
