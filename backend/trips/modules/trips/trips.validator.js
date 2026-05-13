@@ -98,6 +98,9 @@ function validatePendingTripsParams(query) {
   const body = query || {};
   const thanh_pho = normalizeCity(body.thanh_pho);
   const limit = body.limit ? Number(body.limit) : 1;
+  const max_age_minutes = body.max_age_minutes === undefined || body.max_age_minutes === null || body.max_age_minutes === ''
+    ? 30
+    : Number(body.max_age_minutes);
   const latitude = body.latitude === undefined || body.latitude === null || body.latitude === ''
     ? null
     : Number(body.latitude);
@@ -113,13 +116,17 @@ function validatePendingTripsParams(query) {
     errors.push('limit phải là số nguyên từ 1 đến 20');
   }
 
+  if (!Number.isInteger(max_age_minutes) || max_age_minutes <= 0 || max_age_minutes > 1440) {
+    errors.push('max_age_minutes phải là số nguyên từ 1 đến 1440');
+  }
+
   if (latitude !== null && !isValidLatitude(latitude)) errors.push('latitude không hợp lệ');
   if (longitude !== null && !isValidLongitude(longitude)) errors.push('longitude không hợp lệ');
 
   return {
     valid: errors.length === 0,
     errors,
-    normalized: { thanh_pho, limit, latitude, longitude },
+    normalized: { thanh_pho, limit, latitude, longitude, max_age_minutes },
   };
 }
 

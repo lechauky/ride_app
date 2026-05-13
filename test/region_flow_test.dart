@@ -28,6 +28,7 @@ void main() {
     AuthStore.currentUser.value = null;
     AuthStore.token = null;
     LocationService.setCity('HCM');
+    ActiveTripStore.endTrip();
   });
 
   test('LocationService lưu khu vực khách chọn', () {
@@ -161,6 +162,89 @@ void main() {
     expect(trip.loaiXe, 'Ô tô 7 chỗ');
     expect(trip.bienSo, '30A-77777');
     expect(trip.hangXe, 'Ford');
+  });
+
+  test('PassengerTripInfo cập nhật hoàn thành và giữ thông tin tài xế', () {
+    final trip =
+        PassengerTripInfo(
+          maChuyenDi: 'trip-1',
+          thanhPho: 'HCM',
+          tenTaiXe: 'Đang tìm tài xế',
+          sdtTaiXe: '',
+          diemDanhGiaTaiXe: 0,
+          bienSo: '',
+          hangXe: '',
+          mauXe: '',
+          loaiXe: 'Ô tô 4 chỗ',
+          diaChiDon: 'Điểm đón',
+          diaChiDen: 'Điểm đến',
+          diemDon: null,
+          diemDen: null,
+          khoangCachKm: 1,
+          tongTien: 10000,
+          phuongThucThanhToan: 'Tiền mặt',
+          etaPhut: 0,
+        ).mergeDetail({
+          'trang_thai': 'hoan_thanh',
+          'driver': {
+            'ho_ten': 'Tài xế Hoàn Thành',
+            'so_dien_thoai': '0900000000',
+            'diem_danh_gia': 4.8,
+            'vehicle': {
+              'loai_xe': 'o_to_7_cho',
+              'bien_so': '30A-77777',
+              'hang_xe': 'Ford',
+              'mau_xe': 'Đen',
+            },
+          },
+        });
+
+    expect(trip.trangThai, 'hoan_thanh');
+    expect(trip.hasDriver, true);
+    expect(trip.tenTaiXe, 'Tài xế Hoàn Thành');
+    expect(ActiveTripStore.shouldPromptDriverRating(trip), true);
+    expect(ActiveTripStore.shouldPromptDriverRating(trip), false);
+  });
+
+  testWidgets('HomeScreen hiển thị banner chuyến đã hoàn thành', (
+    tester,
+  ) async {
+    AuthStore.currentUser.value = _user(city: 'HCM');
+    ActiveTripStore.startTrip(
+      PassengerTripInfo(
+        maChuyenDi: 'trip-1',
+        thanhPho: 'HCM',
+        trangThai: 'hoan_thanh',
+        hasDriver: true,
+        tenTaiXe: 'Tài xế Demo',
+        sdtTaiXe: '0900000000',
+        diemDanhGiaTaiXe: 4.8,
+        bienSo: '30A-77777',
+        hangXe: 'Ford',
+        mauXe: 'Đen',
+        loaiXe: 'Ô tô 7 chỗ',
+        diaChiDon: 'Điểm đón',
+        diaChiDen: 'Điểm đến',
+        diemDon: null,
+        diemDen: null,
+        khoangCachKm: 1,
+        tongTien: 10000,
+        phuongThucThanhToan: 'Tiền mặt',
+        etaPhut: 0,
+      ),
+    );
+
+    await tester.pumpWidget(
+      _app(
+        const HomeScreen(
+          autoLoadBookingLocation: false,
+          enableTripPolling: false,
+        ),
+      ),
+    );
+
+    expect(find.text('Chuyến đã hoàn thành'), findsOneWidget);
+    expect(find.text('Bấm để đánh giá tài xế Tài xế Demo'), findsOneWidget);
   });
 
   test('TripRequest parse khu vực và khoảng cách tới tài xế', () {

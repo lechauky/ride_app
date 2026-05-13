@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../services/active_trip_store.dart';
-import '../services/api_service.dart';
 import 'home_screen.dart';
 import 'rating_screen.dart';
 
@@ -113,18 +112,9 @@ class _PassengerTripScreenState extends State<PassengerTripScreen> {
 
     _isLoadingDetails = true;
     try {
-      final query = Uri(queryParameters: {"thanh_pho": trip.thanhPho}).query;
-      final res = await ApiService.get(
-        "trips/${trip.maChuyenDi}/details?$query",
-        trip.thanhPho,
-      );
-      final data = res["data"];
-      final detail = data is Map ? data["data"] : null;
-      if (!mounted || data?["success"] != true || detail is! Map) return;
-
-      final updated = trip.mergeDetail(Map<String, dynamic>.from(detail));
-      ActiveTripStore.updateTrip(updated);
-      if (updated.trangThai == "hoan_thanh" && updated.hasDriver) {
+      final updated = await ActiveTripStore.refreshCurrentTrip();
+      if (!mounted || updated == null) return;
+      if (ActiveTripStore.shouldPromptDriverRating(updated)) {
         _showCompletedRatingPrompt(updated);
       }
     } finally {

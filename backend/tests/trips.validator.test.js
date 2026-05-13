@@ -48,6 +48,7 @@ test('validatePendingTripsParams kiểm tra thành phố và tọa độ tài x�
     thanh_pho: 'HN',
     latitude: 21.0285,
     longitude: 105.8542,
+    max_age_minutes: 30,
   });
   const invalid = validatePendingTripsParams({
     thanh_pho: 'DN',
@@ -56,9 +57,29 @@ test('validatePendingTripsParams kiểm tra thành phố và tọa độ tài x�
   });
 
   assert.equal(ok.valid, true);
+  assert.equal(ok.normalized.max_age_minutes, 30);
   assert.equal(invalid.valid, false);
   assert.match(invalid.errors.join(', '), /thanh_pho/);
   assert.match(invalid.errors.join(', '), /latitude/);
+});
+
+test('validatePendingTripsParams mặc định và kiểm tra tuổi cuốc đang chờ', () => {
+  const defaultAge = validatePendingTripsParams({ thanh_pho: 'HCM' });
+  const invalidAge = validatePendingTripsParams({
+    thanh_pho: 'HCM',
+    max_age_minutes: 0,
+  });
+  const tooLargeAge = validatePendingTripsParams({
+    thanh_pho: 'HCM',
+    max_age_minutes: 1441,
+  });
+
+  assert.equal(defaultAge.valid, true);
+  assert.equal(defaultAge.normalized.max_age_minutes, 30);
+  assert.equal(invalidAge.valid, false);
+  assert.match(invalidAge.errors.join(', '), /max_age_minutes/);
+  assert.equal(tooLargeAge.valid, false);
+  assert.match(tooLargeAge.errors.join(', '), /max_age_minutes/);
 });
 
 test('validateTripDetailsParams yêu cầu tripId và thành phố hợp lệ', () => {

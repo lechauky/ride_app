@@ -145,6 +145,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         queryParameters: {
           "thanh_pho": city,
           "limit": "1",
+          "max_age_minutes": "30",
           if (position != null) "latitude": position.latitude.toString(),
           if (position != null) "longitude": position.longitude.toString(),
         },

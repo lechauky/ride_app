@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
+import 'api_service.dart';
 
 /// Thông tin chuyến đi đang chạy của khách (sau khi tài xế nhận cuốc)
 class PassengerTripInfo {
@@ -203,9 +204,11 @@ class PassengerTripInfo {
 class ActiveTripStore {
   static final ValueNotifier<PassengerTripInfo?> currentTrip =
       ValueNotifier<PassengerTripInfo?>(null);
+  static String? _promptedCompletedTripId;
 
   static void startTrip(PassengerTripInfo trip) {
     currentTrip.value = trip;
+    _promptedCompletedTripId = null;
   }
 
   static void updateTrip(PassengerTripInfo trip) {
@@ -214,7 +217,33 @@ class ActiveTripStore {
 
   static void endTrip() {
     currentTrip.value = null;
+    _promptedCompletedTripId = null;
   }
 
   static bool get isInTrip => currentTrip.value != null;
+
+  static bool shouldPromptDriverRating(PassengerTripInfo trip) {
+    if (trip.trangThai != "hoan_thanh" || !trip.hasDriver) return false;
+    if (_promptedCompletedTripId == trip.maChuyenDi) return false;
+    _promptedCompletedTripId = trip.maChuyenDi;
+    return true;
+  }
+
+  static Future<PassengerTripInfo?> refreshCurrentTrip() async {
+    final trip = currentTrip.value;
+    if (trip == null) return null;
+
+    final query = Uri(queryParameters: {"thanh_pho": trip.thanhPho}).query;
+    final res = await ApiService.get(
+      "trips/${trip.maChuyenDi}/details?$query",
+      trip.thanhPho,
+    );
+    final data = res["data"];
+    final detail = data is Map ? data["data"] : null;
+    if (data?["success"] != true || detail is! Map) return currentTrip.value;
+
+    final updated = trip.mergeDetail(Map<String, dynamic>.from(detail));
+    updateTrip(updated);
+    return updated;
+  }
 }

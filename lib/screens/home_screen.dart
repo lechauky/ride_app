@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/location_service.dart';
 import '../services/active_trip_store.dart';
@@ -11,8 +12,13 @@ import 'passenger_trip_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final bool autoLoadBookingLocation;
+  final bool enableTripPolling;
 
-  const HomeScreen({super.key, this.autoLoadBookingLocation = true});
+  const HomeScreen({
+    super.key,
+    this.autoLoadBookingLocation = true,
+    this.enableTripPolling = true,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -20,11 +26,118 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late String city;
+  Timer? _tripTimer;
+  bool _isRefreshingTrip = false;
 
   @override
   void initState() {
     super.initState();
     city = AuthStore.currentUser.value?.thanhPho ?? "HCM";
+    if (widget.enableTripPolling) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _refreshActiveTrip());
+      _tripTimer = Timer.periodic(
+        const Duration(seconds: 5),
+        (_) => _refreshActiveTrip(),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _tripTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refreshActiveTrip() async {
+    if (_isRefreshingTrip || ActiveTripStore.currentTrip.value == null) return;
+    _isRefreshingTrip = true;
+    try {
+      final updated = await ActiveTripStore.refreshCurrentTrip();
+      if (!mounted || updated == null) return;
+      if (ActiveTripStore.shouldPromptDriverRating(updated)) {
+        _showCompletedRatingPrompt(updated);
+      }
+    } finally {
+      _isRefreshingTrip = false;
+    }
+  }
+
+  String _bannerTitle(PassengerTripInfo trip) {
+    if (trip.trangThai == "hoan_thanh") return "Chuyến đã hoàn thành";
+    if (trip.trangThai == "cho_xu_ly") return "Đang tìm tài xế";
+    return "Đang trong chuyến";
+  }
+
+  String _bannerSubtitle(PassengerTripInfo trip) {
+    if (trip.trangThai == "hoan_thanh") {
+      return "Bấm để đánh giá tài xế ${trip.tenTaiXe}";
+    }
+    if (trip.hasDriver) return "Tài xế ${trip.tenTaiXe} • ${trip.bienSo}";
+    return "Đang tìm tài xế trong ${trip.thanhPho}";
+  }
+
+  IconData _bannerIcon(PassengerTripInfo trip) {
+    if (trip.trangThai == "hoan_thanh") return Icons.rate_review;
+    if (trip.trangThai == "cho_xu_ly") return Icons.search;
+    return Icons.directions_car;
+  }
+
+  void _openDriverRating(PassengerTripInfo trip) {
+    ActiveTripStore.endTrip();
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (_) => RatingScreen(
+          target: RatingTarget.driver,
+          tripId: trip.maChuyenDi,
+          thanhPho: trip.thanhPho,
+          targetName: trip.tenTaiXe,
+          targetSubInfo: "${trip.hangXe} • ${trip.bienSo}",
+        ),
+      ),
+      (r) => false,
+    );
+  }
+
+  void _showCompletedRatingPrompt(PassengerTripInfo trip) {
+    _tripTimer?.cancel();
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green, size: 26),
+            SizedBox(width: 8),
+            Text("Chuyến đã hoàn thành"),
+          ],
+        ),
+        content: Text(
+          "Tài xế ${trip.tenTaiXe} đã hoàn thành chuyến đi.\nBạn có thể đánh giá tài xế để lưu phản hồi vào hệ thống.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ActiveTripStore.endTrip();
+            },
+            child: const Text("Bỏ qua"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.deepPurple,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              Navigator.pop(context);
+              _openDriverRating(trip);
+            },
+            child: const Text("Đánh giá tài xế"),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -51,7 +164,7 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: const Icon(Icons.logout),
             onPressed: () async {
               await AuthStore.logout();
-              if (!mounted) return;
+              if (!context.mounted) return;
               Navigator.pushAndRemoveUntil(
                 context,
                 MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -126,6 +239,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: InkWell(
                       borderRadius: BorderRadius.circular(16),
                       onTap: () {
+                        if (trip.trangThai == "hoan_thanh" &&
+                            ActiveTripStore.shouldPromptDriverRating(trip)) {
+                          _showCompletedRatingPrompt(trip);
+                          return;
+                        }
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -159,8 +277,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 color: Colors.white24,
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(
-                                Icons.directions_car,
+                              child: Icon(
+                                _bannerIcon(trip),
                                 color: Colors.white,
                                 size: 22,
                               ),
@@ -170,9 +288,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
-                                    "Bạn đang trong chuyến đi",
-                                    style: TextStyle(
+                                  Text(
+                                    _bannerTitle(trip),
+                                    style: const TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.bold,
                                       fontSize: 15,
@@ -180,9 +298,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    trip.hasDriver
-                                        ? "Tài xế ${trip.tenTaiXe} • ${trip.bienSo}"
-                                        : "Đang tìm tài xế trong ${trip.thanhPho}",
+                                    _bannerSubtitle(trip),
                                     style: const TextStyle(
                                       color: Colors.white70,
                                       fontSize: 12,

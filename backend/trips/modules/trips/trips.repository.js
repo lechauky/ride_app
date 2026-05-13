@@ -341,7 +341,14 @@ async function getTripHistoryByUserId({ userId, thanh_pho, limit, offset }) {
   return merged;
 }
 
-async function getNearestPendingTrips({ thanh_pho, limit, latitude, longitude, driverUserId }) {
+async function getNearestPendingTrips({
+  thanh_pho,
+  limit,
+  latitude,
+  longitude,
+  driverUserId,
+  max_age_minutes = 30,
+}) {
   const pool = await getPrimaryConnection(thanh_pho);
   let driverId = null;
 
@@ -361,6 +368,7 @@ async function getNearestPendingTrips({ thanh_pho, limit, latitude, longitude, d
   const result = await pool.request()
     .input('thanh_pho', sql.VarChar(10), thanh_pho)
     .input('driver_id', sql.UniqueIdentifier, driverId)
+    .input('max_age_minutes', sql.Int, max_age_minutes)
     .query(`
       SELECT TOP (50)
         t.id AS ma_chuyen_di,
@@ -388,6 +396,7 @@ async function getNearestPendingTrips({ thanh_pho, limit, latitude, longitude, d
       LEFT JOIN payments p ON p.ma_chuyen_di = t.id
       WHERE t.thanh_pho = @thanh_pho
         AND t.trang_thai = 'cho_xu_ly'
+        AND t.ngay_tao >= DATEADD(MINUTE, -@max_age_minutes, SYSDATETIME())
         AND (
           @driver_id IS NULL
           OR EXISTS (
@@ -763,6 +772,7 @@ async function completeTrip({ tripId, driverUserId, thanh_pho }) {
       ma_chuyen_di: tripId,
       ma_tai_xe: driver.id,
       trang_thai: 'hoan_thanh',
+      thanh_pho,
     };
   } catch (error) {
     await transaction.rollback();
