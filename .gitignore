@@ -48,9 +48,14 @@ app.*.map.json
 .ai_skills/
 *.pdf
 GEMINI.md
-README.md
 PhanCong_Nhom2_Backend.md
-backend/database/
 .cursorrules
 .cursor
-.gitignore
+
+# Giữ dữ liệu runtime ngoài Git, nhưng cho phép schema/seed demo để người khác clone chạy được.
+backend/database/*
+!backend/database/
+!backend/database/02_schema_mssql.sql
+!backend/database/06_smoke_test_mssql.sql
+!backend/database/seed-all.js
+!backend/database/repair-demo-unicode.js

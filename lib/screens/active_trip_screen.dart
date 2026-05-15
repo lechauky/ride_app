@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import '../services/api_service.dart';
 import 'rating_screen.dart';
 import 'driver_home_screen.dart';
 
 /// Thông tin một chuyến đi đang thực hiện
 class TripRequest {
   final String maChuyenDi;
+  final String thanhPho;
   final String tenKhach;
   final String soDienThoai;
   final double diemDanhGia;
@@ -17,9 +20,11 @@ class TripRequest {
   final int gia;
   final String loaiXe;
   final String phuongThucThanhToan;
+  final double? khoangCachDenTaiXeKm;
 
   TripRequest({
     required this.maChuyenDi,
+    required this.thanhPho,
     required this.tenKhach,
     required this.soDienThoai,
     required this.diemDanhGia,
@@ -31,7 +36,93 @@ class TripRequest {
     required this.gia,
     required this.loaiXe,
     required this.phuongThucThanhToan,
+    this.khoangCachDenTaiXeKm,
   });
+
+  factory TripRequest.fromJson(Map<String, dynamic> json) {
+    final city = _readString(json, 'thanh_pho', fallback: 'HCM');
+    final pickupLat =
+        _readDouble(json, 'vi_do_diem_don') ??
+        (city == 'HN' ? 21.028511 : 10.762622);
+    final pickupLon =
+        _readDouble(json, 'kinh_do_diem_don') ??
+        (city == 'HN' ? 105.854165 : 106.660172);
+    final destLat = _readDouble(json, 'vi_do_diem_den') ?? pickupLat;
+    final destLon = _readDouble(json, 'kinh_do_diem_den') ?? pickupLon;
+
+    return TripRequest(
+      maChuyenDi: _readString(
+        json,
+        'ma_chuyen_di',
+        fallback: _readString(json, 'id'),
+      ),
+      thanhPho: city,
+      tenKhach: _readString(json, 'ten_khach', fallback: 'Khách hàng'),
+      soDienThoai: _readString(json, 'so_dien_thoai', fallback: 'Chưa có SĐT'),
+      diemDanhGia: _readDouble(json, 'diem_danh_gia_khach') ?? 5,
+      diaChiDon: _readString(
+        json,
+        'dia_chi_diem_don',
+        fallback: 'Vị trí đón hiện tại',
+      ),
+      diaChiDen: _readString(
+        json,
+        'dia_chi_diem_den',
+        fallback: 'Điểm đến đã chọn',
+      ),
+      diemDon: LatLng(pickupLat, pickupLon),
+      diemDen: LatLng(destLat, destLon),
+      khoangCachKm: _readDouble(json, 'khoang_cach_km') ?? 1,
+      gia: _readInt(json, 'so_tien') ?? 0,
+      loaiXe: _rideTypeLabel(
+        _readString(json, 'ma_loai_dich_vu'),
+        _readString(json, 'ten_loai_dich_vu'),
+      ),
+      phuongThucThanhToan: _paymentLabel(
+        _readString(json, 'phuong_thuc', fallback: 'tien_mat'),
+      ),
+      khoangCachDenTaiXeKm: _readDouble(json, 'khoang_cach_den_tai_xe_km'),
+    );
+  }
+
+  static String _readString(
+    Map<String, dynamic> json,
+    String key, {
+    String fallback = '',
+  }) {
+    final value = json[key];
+    if (value == null) return fallback;
+    final text = value.toString();
+    return text.isEmpty ? fallback : text;
+  }
+
+  static double? _readDouble(Map<String, dynamic> json, String key) {
+    final value = json[key];
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString());
+  }
+
+  static int? _readInt(Map<String, dynamic> json, String key) {
+    final value = json[key];
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.round();
+    return int.tryParse(value.toString());
+  }
+
+  static String _rideTypeLabel(String id, String label) {
+    if (label.isNotEmpty) return label;
+    if (id == 'car7') return 'Ô tô 7 chỗ';
+    if (id == 'car4') return 'Ô tô 4 chỗ';
+    return 'Xe máy';
+  }
+
+  static String _paymentLabel(String id) {
+    if (id == 'vi_dien_tu') return 'Ví điện tử';
+    if (id == 'the_ngan_hang') return 'Thẻ ngân hàng';
+    return 'Tiền mặt';
+  }
 }
 
 class ActiveTripScreen extends StatefulWidget {
@@ -43,7 +134,7 @@ class ActiveTripScreen extends StatefulWidget {
 }
 
 class _ActiveTripScreenState extends State<ActiveTripScreen> {
-  GoogleMapController? mapController;
+  final MapController mapController = MapController();
 
   /// 0 = đang đến đón, 1 = đã đón khách, 2 = hoàn thành
   int trangThai = 0;
@@ -58,40 +149,31 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
     return "${buf.toString()}₫";
   }
 
-  Set<Marker> _buildMarkers() {
-    return {
+  List<Marker> _buildMarkers() {
+    return [
       Marker(
-        markerId: const MarkerId("pickup"),
-        position: widget.trip.diemDon,
-        icon: BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueGreen),
-        infoWindow: InfoWindow(
-          title: "Điểm đón",
-          snippet: widget.trip.diaChiDon,
-        ),
+        point: widget.trip.diemDon,
+        width: 40,
+        height: 40,
+        child: const Icon(Icons.location_on, color: Colors.green, size: 40),
       ),
       Marker(
-        markerId: const MarkerId("destination"),
-        position: widget.trip.diemDen,
-        icon: BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueRed),
-        infoWindow: InfoWindow(
-          title: "Điểm đến",
-          snippet: widget.trip.diaChiDen,
-        ),
+        point: widget.trip.diemDen,
+        width: 40,
+        height: 40,
+        child: const Icon(Icons.location_on, color: Colors.red, size: 40),
       ),
-    };
+    ];
   }
 
-  Set<Polyline> _buildPolylines() {
-    return {
+  List<Polyline> _buildPolylines() {
+    return [
       Polyline(
-        polylineId: const PolylineId("route"),
         color: Colors.deepPurple,
-        width: 4,
+        strokeWidth: 4,
         points: [widget.trip.diemDon, widget.trip.diemDen],
       ),
-    };
+    ];
   }
 
   LatLng _midpoint() {
@@ -101,20 +183,40 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
     );
   }
 
-  void _onAction() {
+  Future<void> _onAction() async {
     if (trangThai == 0) {
       setState(() => trangThai = 1);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Đã đón khách – bắt đầu chuyến đi")),
       );
     } else if (trangThai == 1) {
+      final res = await ApiService.post(
+        'trips/${widget.trip.maChuyenDi}/complete',
+        widget.trip.thanhPho,
+        {'thanh_pho': widget.trip.thanhPho},
+      );
+
+      if (!mounted) return;
+
+      if (res["data"] == null || res["data"]["success"] != true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res["data"]?["message"] ?? "Lỗi hoàn thành chuyến"),
+          ),
+        );
+        return;
+      }
+
+      setState(() => trangThai = 2);
+
       // Hoàn thành chuyến → mời tài xế đánh giá khách
       showDialog(
         context: context,
         barrierDismissible: false,
         builder: (_) => AlertDialog(
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18)),
+            borderRadius: BorderRadius.circular(18),
+          ),
           title: Row(
             children: const [
               Icon(Icons.flag, color: Colors.green, size: 26),
@@ -123,15 +225,15 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
             ],
           ),
           content: Text(
-              "Chuyến #${widget.trip.maChuyenDi} đã hoàn tất.\nTổng thu: ${_formatVND(widget.trip.gia)}\nPhương thức: ${widget.trip.phuongThucThanhToan}"),
+            "Chuyến #${widget.trip.maChuyenDi} đã hoàn tất.\nTổng thu: ${_formatVND(widget.trip.gia)}\nPhương thức: ${widget.trip.phuongThucThanhToan}",
+          ),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.pop(context); // đóng dialog
                 Navigator.pushAndRemoveUntil(
                   context,
-                  MaterialPageRoute(
-                      builder: (_) => const DriverHomeScreen()),
+                  MaterialPageRoute(builder: (_) => const DriverHomeScreen()),
                   (r) => false,
                 );
               },
@@ -149,6 +251,8 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
                   MaterialPageRoute(
                     builder: (_) => RatingScreen(
                       target: RatingTarget.passenger,
+                      tripId: widget.trip.maChuyenDi,
+                      thanhPho: widget.trip.thanhPho,
                       targetName: widget.trip.tenKhach,
                       targetSubInfo:
                           "${widget.trip.soDienThoai} • Chuyến #${widget.trip.maChuyenDi}",
@@ -222,9 +326,10 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
                 Text(
                   _statusLabel(),
                   style: TextStyle(
-                      color: _statusColor(),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14),
+                    color: _statusColor(),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
                 ),
               ],
             ),
@@ -233,16 +338,17 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
           // Bản đồ
           SizedBox(
             height: 280,
-            child: GoogleMap(
-              initialCameraPosition: CameraPosition(
-                target: _midpoint(),
-                zoom: 13,
-              ),
-              onMapCreated: (c) => mapController = c,
-              markers: _buildMarkers(),
-              polylines: _buildPolylines(),
-              myLocationEnabled: true,
-              myLocationButtonEnabled: true,
+            child: FlutterMap(
+              mapController: mapController,
+              options: MapOptions(initialCenter: _midpoint(), initialZoom: 13),
+              children: [
+                TileLayer(
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.example.ride_app',
+                ),
+                PolylineLayer(polylines: _buildPolylines()),
+                MarkerLayer(markers: _buildMarkers()),
+              ],
             ),
           ),
 
@@ -259,44 +365,59 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(14),
-                      border:
-                          Border.all(color: Colors.grey.shade300),
+                      border: Border.all(color: Colors.grey.shade300),
                     ),
                     child: Row(
                       children: [
                         const CircleAvatar(
                           radius: 26,
                           backgroundColor: Colors.deepPurple,
-                          child: Icon(Icons.person,
-                              color: Colors.white, size: 28),
+                          child: Icon(
+                            Icons.person,
+                            color: Colors.white,
+                            size: 28,
+                          ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(t.tenKhach,
-                                  style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight:
-                                          FontWeight.bold)),
+                              Text(
+                                t.tenKhach,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                               const SizedBox(height: 2),
                               Row(
                                 children: [
-                                  const Icon(Icons.star,
-                                      color: Colors.amber, size: 14),
-                                  Text(" ${t.diemDanhGia}",
-                                      style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.black54)),
+                                  const Icon(
+                                    Icons.star,
+                                    color: Colors.amber,
+                                    size: 14,
+                                  ),
+                                  Text(
+                                    " ${t.diemDanhGia}",
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.black54,
+                                    ),
+                                  ),
                                   const SizedBox(width: 8),
-                                  const Icon(Icons.phone,
-                                      size: 12, color: Colors.black54),
-                                  Text(" ${t.soDienThoai}",
-                                      style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.black54)),
+                                  const Icon(
+                                    Icons.phone,
+                                    size: 12,
+                                    color: Colors.black54,
+                                  ),
+                                  Text(
+                                    " ${t.soDienThoai}",
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.black54,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ],
@@ -306,29 +427,34 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
                           onPressed: () {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                  content: Text(
-                                      "Gọi ${t.tenKhach} – ${t.soDienThoai}")),
+                                content: Text(
+                                  "Gọi ${t.tenKhach} – ${t.soDienThoai}",
+                                ),
+                              ),
                             );
                           },
-                          icon: const Icon(Icons.call,
-                              color: Colors.green),
+                          icon: const Icon(Icons.call, color: Colors.green),
                           style: IconButton.styleFrom(
-                              backgroundColor: Colors.green
-                                  .withValues(alpha: 0.1)),
+                            backgroundColor: Colors.green.withValues(
+                              alpha: 0.1,
+                            ),
+                          ),
                         ),
                         const SizedBox(width: 4),
                         IconButton(
                           onPressed: () {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                  content: Text("Mở khung chat")),
+                                content: Text(
+                                  "Tính năng chat không dùng trong demo này",
+                                ),
+                              ),
                             );
                           },
-                          icon: const Icon(Icons.message,
-                              color: Colors.blue),
+                          icon: const Icon(Icons.message, color: Colors.blue),
                           style: IconButton.styleFrom(
-                              backgroundColor: Colors.blue
-                                  .withValues(alpha: 0.1)),
+                            backgroundColor: Colors.blue.withValues(alpha: 0.1),
+                          ),
                         ),
                       ],
                     ),
@@ -341,16 +467,23 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(14),
-                      border:
-                          Border.all(color: Colors.grey.shade300),
+                      border: Border.all(color: Colors.grey.shade300),
                     ),
                     child: Column(
                       children: [
-                        _diaChiRow(Icons.my_location, Colors.green,
-                            "Điểm đón", t.diaChiDon),
+                        _diaChiRow(
+                          Icons.my_location,
+                          Colors.green,
+                          "Điểm đón",
+                          t.diaChiDon,
+                        ),
                         const Divider(),
-                        _diaChiRow(Icons.location_on, Colors.red,
-                            "Điểm đến", t.diaChiDen),
+                        _diaChiRow(
+                          Icons.location_on,
+                          Colors.red,
+                          "Điểm đến",
+                          t.diaChiDen,
+                        ),
                       ],
                     ),
                   ),
@@ -367,25 +500,25 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
                       children: [
                         _infoRow("Loại xe", t.loaiXe),
                         const SizedBox(height: 6),
-                        _infoRow("Khoảng cách",
-                            "${t.khoangCachKm} km"),
+                        _infoRow("Khoảng cách", "${t.khoangCachKm} km"),
                         const SizedBox(height: 6),
-                        _infoRow("Phương thức",
-                            t.phuongThucThanhToan),
+                        _infoRow("Phương thức", t.phuongThucThanhToan),
                         const Divider(),
                         Row(
-                          mainAxisAlignment:
-                              MainAxisAlignment.spaceBetween,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text("Tổng cước",
-                                style: TextStyle(
-                                    fontWeight: FontWeight.w600)),
-                            Text(_formatVND(t.gia),
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.deepPurple,
-                                )),
+                            const Text(
+                              "Tổng cước",
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            Text(
+                              _formatVND(t.gia),
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.deepPurple,
+                              ),
+                            ),
                           ],
                         ),
                       ],
@@ -403,25 +536,23 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 6,
-                    offset: const Offset(0, -2)),
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 6,
+                  offset: const Offset(0, -2),
+                ),
               ],
             ),
             child: ElevatedButton.icon(
               onPressed: _onAction,
-              icon: Icon(trangThai == 0
-                  ? Icons.person_pin_circle
-                  : Icons.flag),
-              label: Text(_actionLabel(),
-                  style: const TextStyle(fontSize: 16)),
+              icon: Icon(trangThai == 0 ? Icons.person_pin_circle : Icons.flag),
+              label: Text(_actionLabel(), style: const TextStyle(fontSize: 16)),
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 52),
-                backgroundColor:
-                    trangThai == 0 ? Colors.orange : Colors.green,
+                backgroundColor: trangThai == 0 ? Colors.orange : Colors.green,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
             ),
           ),
@@ -430,8 +561,7 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
     );
   }
 
-  Widget _diaChiRow(
-      IconData icon, Color color, String label, String value) {
+  Widget _diaChiRow(IconData icon, Color color, String label, String value) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -441,13 +571,18 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label,
-                  style: const TextStyle(
-                      fontSize: 12, color: Colors.black54)),
+              Text(
+                label,
+                style: const TextStyle(fontSize: 12, color: Colors.black54),
+              ),
               const SizedBox(height: 2),
-              Text(value,
-                  style: const TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w500)),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ],
           ),
         ),
@@ -459,12 +594,14 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label,
-            style:
-                const TextStyle(fontSize: 13, color: Colors.black54)),
-        Text(value,
-            style: const TextStyle(
-                fontSize: 14, fontWeight: FontWeight.w500)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 13, color: Colors.black54),
+        ),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+        ),
       ],
     );
   }

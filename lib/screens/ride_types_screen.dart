@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:latlong2/latlong.dart';
+import '../services/api_service.dart';
 import 'payment_screen.dart';
 
 class RideType {
@@ -29,6 +30,9 @@ class RideTypesScreen extends StatefulWidget {
   final String? diaChiDen;
   final LatLng? diemDon;
   final LatLng? diemDen;
+  final String thanhPho;
+  final bool loadDriverCounts;
+  final Map<String, int>? initialDriverCounts;
 
   const RideTypesScreen({
     super.key,
@@ -37,6 +41,9 @@ class RideTypesScreen extends StatefulWidget {
     this.diaChiDen,
     this.diemDon,
     this.diemDen,
+    this.thanhPho = "HCM",
+    this.loadDriverCounts = true,
+    this.initialDriverCounts,
   });
 
   @override
@@ -75,6 +82,17 @@ class _RideTypesScreenState extends State<RideTypesScreen> {
   ];
 
   int selectedIndex = 0;
+  Map<String, int>? _availableDriverCounts;
+  bool _isLoadingDriverCounts = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _availableDriverCounts = widget.initialDriverCounts;
+    if (widget.loadDriverCounts) {
+      _loadAvailableDriverCounts();
+    }
+  }
 
   String _formatVND(int v) {
     final s = v.toString();
@@ -88,6 +106,56 @@ class _RideTypesScreenState extends State<RideTypesScreen> {
 
   int _tongTien(RideType t) =>
       (t.giaCoBan + (t.giaMoiKm * widget.khoangCachKm)).toInt();
+
+  Future<void> _loadAvailableDriverCounts() async {
+    setState(() => _isLoadingDriverCounts = true);
+    try {
+      final res = await ApiService.post("drivers/available", widget.thanhPho, {
+        "thanh_pho": widget.thanhPho,
+      });
+      final data = res["data"];
+      final items = data is Map ? data["data"] : null;
+      final counts = <String, int>{"bike": 0, "car4": 0, "car7": 0};
+
+      if (items is List) {
+        for (final item in items) {
+          if (item is! Map) continue;
+          final vehicle = item["vehicle"];
+          final vehicleMap = vehicle is Map ? vehicle : null;
+          final loaiXe = vehicleMap?["loai_xe"]?.toString();
+          final rideType = _vehicleTypeToRideType(loaiXe);
+          if (rideType != null) {
+            counts[rideType] = (counts[rideType] ?? 0) + 1;
+          }
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _availableDriverCounts = counts;
+        _isLoadingDriverCounts = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _availableDriverCounts = null;
+        _isLoadingDriverCounts = false;
+      });
+    }
+  }
+
+  String? _vehicleTypeToRideType(String? loaiXe) {
+    if (loaiXe == "xe_may") return "bike";
+    if (loaiXe == "o_to_4_cho") return "car4";
+    if (loaiXe == "o_to_7_cho") return "car7";
+    return null;
+  }
+
+  String _driverCountLabel(RideType type) {
+    if (_isLoadingDriverCounts && _availableDriverCounts == null) return "...";
+    final count = _availableDriverCounts?[type.id];
+    return count == null ? "-" : count.toString();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -109,18 +177,26 @@ class _RideTypesScreenState extends State<RideTypesScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.straighten,
-                        color: Colors.deepPurple, size: 20),
+                    const Icon(
+                      Icons.straighten,
+                      color: Colors.deepPurple,
+                      size: 20,
+                    ),
                     const SizedBox(width: 6),
-                    Text("Khoảng cách: ${widget.khoangCachKm} km",
-                        style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600)),
+                    Text(
+                      "Khoảng cách: ${widget.khoangCachKm} km",
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 4),
-                const Text("Vui lòng chọn loại xe phù hợp",
-                    style: TextStyle(color: Colors.black54)),
+                const Text(
+                  "Vui lòng chọn loại xe phù hợp",
+                  style: TextStyle(color: Colors.black54),
+                ),
               ],
             ),
           ),
@@ -182,42 +258,51 @@ class _RideTypesScreenState extends State<RideTypesScreen> {
                                   Text(
                                     t.tenLoai,
                                     style: const TextStyle(
-                                        fontSize: 17,
-                                        fontWeight: FontWeight.bold),
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                   const SizedBox(width: 6),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 6, vertical: 2),
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: Colors.grey.shade100,
-                                      borderRadius:
-                                          BorderRadius.circular(8),
+                                      borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Row(
                                       children: [
-                                        const Icon(Icons.person,
-                                            size: 12,
-                                            color: Colors.black54),
-                                        Text(" ${t.sucChua}",
-                                            style: const TextStyle(
-                                                fontSize: 12)),
+                                        const Icon(
+                                          Icons.person,
+                                          size: 12,
+                                          color: Colors.black54,
+                                        ),
+                                        Text(
+                                          " ${_driverCountLabel(t)}",
+                                          style: const TextStyle(fontSize: 12),
+                                        ),
                                       ],
                                     ),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 4),
-                              Text(t.moTa,
-                                  style: const TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.black54)),
+                              Text(
+                                t.moTa,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.black54,
+                                ),
+                              ),
                               const SizedBox(height: 4),
                               Text(
                                 "Mở cửa ${_formatVND(t.giaCoBan)} • ${_formatVND(t.giaMoiKm)}/km",
                                 style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.black45),
+                                  fontSize: 12,
+                                  color: Colors.black45,
+                                ),
                               ),
                             ],
                           ),
@@ -238,8 +323,10 @@ class _RideTypesScreenState extends State<RideTypesScreen> {
                             if (isSelected)
                               const Padding(
                                 padding: EdgeInsets.only(top: 4),
-                                child: Icon(Icons.check_circle,
-                                    color: Colors.deepPurple),
+                                child: Icon(
+                                  Icons.check_circle,
+                                  color: Colors.deepPurple,
+                                ),
                               ),
                           ],
                         ),
@@ -258,9 +345,10 @@ class _RideTypesScreenState extends State<RideTypesScreen> {
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 6,
-                    offset: const Offset(0, -2))
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 6,
+                  offset: const Offset(0, -2),
+                ),
               ],
             ),
             child: Column(
@@ -268,14 +356,21 @@ class _RideTypesScreenState extends State<RideTypesScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text("Tổng cước (${selected.tenLoai})",
-                        style: const TextStyle(
-                            fontSize: 14, color: Colors.black54)),
-                    Text(_formatVND(_tongTien(selected)),
-                        style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.deepPurple)),
+                    Text(
+                      "Tổng cước (${selected.tenLoai})",
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.black54,
+                      ),
+                    ),
+                    Text(
+                      _formatVND(_tongTien(selected)),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.deepPurple,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -287,11 +382,13 @@ class _RideTypesScreenState extends State<RideTypesScreen> {
                         builder: (_) => PaymentScreen(
                           tongTien: _tongTien(selected),
                           tenLoaiXe: selected.tenLoai,
+                          maLoaiDichVu: selected.id,
                           khoangCachKm: widget.khoangCachKm,
                           diaChiDon: widget.diaChiDon,
                           diaChiDen: widget.diaChiDen,
                           diemDon: widget.diemDon,
                           diemDen: widget.diemDen,
+                          thanhPho: widget.thanhPho,
                         ),
                       ),
                     );
@@ -301,14 +398,17 @@ class _RideTypesScreenState extends State<RideTypesScreen> {
                     backgroundColor: Colors.deepPurple,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
-                  child: const Text("Tiếp tục thanh toán",
-                      style: TextStyle(fontSize: 16)),
+                  child: const Text(
+                    "Tiếp tục thanh toán",
+                    style: TextStyle(fontSize: 16),
+                  ),
                 ),
               ],
             ),
-          )
+          ),
         ],
       ),
     );

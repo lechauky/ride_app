@@ -5,7 +5,8 @@
   "main": "user-auth/server.js",
   "scripts": {
     "start": "node user-auth/server.js",
-    "dev": "nodemon user-auth/server.js"
+    "dev": "nodemon user-auth/server.js",
+    "test": "node --test tests/*.test.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

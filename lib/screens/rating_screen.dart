@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
+import '../services/auth_store.dart';
 import 'home_screen.dart';
 import 'driver_home_screen.dart';
 
@@ -15,12 +17,16 @@ class RatingScreen extends StatefulWidget {
 
   /// Thông tin phụ (vd: biển số xe khi đánh giá tài xế, SĐT khi đánh giá khách)
   final String? targetSubInfo;
+  final String? tripId;
+  final String? thanhPho;
 
   const RatingScreen({
     super.key,
     this.target = RatingTarget.driver,
     this.targetName,
     this.targetSubInfo,
+    this.tripId,
+    this.thanhPho,
   });
 
   @override
@@ -40,16 +46,15 @@ class _RatingScreenState extends State<RatingScreen> {
   String get _targetLabel => _isPassenger ? "khách hàng" : "tài xế";
 
   String get _name =>
-      widget.targetName ?? (_isPassenger ? "Trần Thị B" : "Nguyễn Văn A");
+      widget.targetName ?? (_isPassenger ? "Khách hàng" : "Tài xế chuyến đi");
 
   String get _subInfo =>
       widget.targetSubInfo ??
-      (_isPassenger
-          ? "0987 654 321 • Chuyến #12345"
-          : "Honda Wave • 59X1-234.56");
+      (widget.tripId != null
+          ? "Chuyến #${widget.tripId}"
+          : "Chưa có thông tin chuyến");
 
-  IconData get _subIcon =>
-      _isPassenger ? Icons.phone : Icons.directions_car;
+  IconData get _subIcon => _isPassenger ? Icons.phone : Icons.directions_car;
 
   IconData get _avatarIcon =>
       _isPassenger ? Icons.person_outline : Icons.person;
@@ -111,19 +116,41 @@ class _RatingScreenState extends State<RatingScreen> {
     );
   }
 
-  void _submitRating() {
+  Future<void> _submitRating() async {
     if (rating == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Vui lòng chọn số sao")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Vui lòng chọn số sao")));
       return;
     }
+
+    if (widget.tripId != null) {
+      final user = AuthStore.currentUser.value;
+      final city = widget.thanhPho ?? user?.thanhPho ?? "HCM";
+      final res = await ApiService.post("trips/${widget.tripId}/rating", city, {
+        "thanh_pho": city,
+        "loai_nguoi_danh_gia": _isPassenger ? "driver" : "user",
+        "diem_so": rating,
+        "tags_nhan_xet": selectedTags.toList(),
+        "nhan_xet": feedbackCtl.text.trim(),
+      });
+
+      if (!mounted) return;
+      if (res["data"] == null || res["data"]["success"] != true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res["data"]?["message"] ?? "Lỗi lưu đánh giá"),
+          ),
+        );
+        return;
+      }
+    }
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         title: Row(
           children: const [
             Icon(Icons.favorite, color: Colors.pink, size: 26),
@@ -132,7 +159,8 @@ class _RatingScreenState extends State<RatingScreen> {
           ],
         ),
         content: Text(
-            "Bạn đã đánh giá $rating sao cho $_targetLabel.\nPhản hồi của bạn giúp chúng tôi cải thiện dịch vụ."),
+          "Bạn đã đánh giá $rating sao cho $_targetLabel.\nPhản hồi của bạn giúp chúng tôi cải thiện dịch vụ.",
+        ),
         actions: [
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -144,7 +172,7 @@ class _RatingScreenState extends State<RatingScreen> {
               _goHome();
             },
             child: const Text("Về trang chủ"),
-          )
+          ),
         ],
       ),
     );
@@ -175,14 +203,15 @@ class _RatingScreenState extends State<RatingScreen> {
                   CircleAvatar(
                     radius: 45,
                     backgroundColor: Colors.deepPurple,
-                    child: Icon(_avatarIcon,
-                        size: 50, color: Colors.white),
+                    child: Icon(_avatarIcon, size: 50, color: Colors.white),
                   ),
                   const SizedBox(height: 10),
                   Text(
                     _name,
                     style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold),
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Row(
@@ -190,8 +219,10 @@ class _RatingScreenState extends State<RatingScreen> {
                     children: [
                       Icon(_subIcon, size: 16, color: Colors.black54),
                       const SizedBox(width: 4),
-                      Text(_subInfo,
-                          style: const TextStyle(color: Colors.black54)),
+                      Text(
+                        _subInfo,
+                        style: const TextStyle(color: Colors.black54),
+                      ),
                     ],
                   ),
                 ],
@@ -200,8 +231,7 @@ class _RatingScreenState extends State<RatingScreen> {
             const SizedBox(height: 24),
             Text(
               _ratingLabel(),
-              style: const TextStyle(
-                  fontSize: 20, fontWeight: FontWeight.w600),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
 
@@ -227,8 +257,7 @@ class _RatingScreenState extends State<RatingScreen> {
               alignment: Alignment.centerLeft,
               child: const Text(
                 "Điểm nổi bật",
-                style:
-                    TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
               ),
             ),
             const SizedBox(height: 10),
@@ -264,7 +293,8 @@ class _RatingScreenState extends State<RatingScreen> {
                 hintText: _feedbackHint,
                 alignLabelWithHint: true,
                 border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14)),
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -276,16 +306,13 @@ class _RatingScreenState extends State<RatingScreen> {
                 backgroundColor: Colors.deepPurple,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
-              child: const Text("Gửi đánh giá",
-                  style: TextStyle(fontSize: 16)),
+              child: const Text("Gửi đánh giá", style: TextStyle(fontSize: 16)),
             ),
             const SizedBox(height: 8),
-            TextButton(
-              onPressed: _goHome,
-              child: const Text("Bỏ qua"),
-            ),
+            TextButton(onPressed: _goHome, child: const Text("Bỏ qua")),
           ],
         ),
       ),

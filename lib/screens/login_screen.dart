@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
+import '../services/auth_store.dart';
 import 'home_screen.dart';
 import 'driver_home_screen.dart';
 import 'register_screen.dart';
@@ -18,6 +20,8 @@ class _LoginScreenState extends State<LoginScreen> {
   // 0 = Người dùng, 1 = Tài xế
   int role = 0;
   bool obscurePass = true;
+  String city = "HCM";
+  bool isProcessing = false;
 
   @override
   void dispose() {
@@ -26,24 +30,59 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _doLogin() {
+  Future<void> _doLogin() async {
     if (!_formKey.currentState!.validate()) return;
+    setState(() => isProcessing = true);
 
-    // Giả lập đăng nhập thành công
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Đăng nhập thành công")),
-    );
+    try {
+      final res = await ApiService.post('auth/login', 'HCM', {
+        // Mặc định gọi cổng 5001 để login
+        "email": emailCtl.text.trim(),
+        "mat_khau": passCtl.text,
+      });
 
-    if (role == 1) {
-      Navigator.pushReplacement(
+      final data = res["data"];
+      if (data["success"] == true) {
+        final userData = data["data"];
+        final dbRole = userData["vai_tro"]?.toString() == "driver" ? 1 : 0;
+        await AuthStore.login(
+          UserInfo(
+            id: userData["id"].toString(),
+            email: userData["email"].toString(),
+            hoTen: userData["ho_ten"].toString(),
+            thanhPho: (userData["thanh_pho"] ?? 'HCM').toString(),
+            role: dbRole,
+          ),
+          data["token"].toString(),
+        );
+
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Đăng nhập thành công")));
+
+        if (!mounted) return;
+        if (dbRole == 1) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const DriverHomeScreen()),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const HomeScreen()),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(data["message"] ?? "Đăng nhập thất bại")),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
         context,
-        MaterialPageRoute(builder: (_) => const DriverHomeScreen()),
-      );
-    } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
+      ).showSnackBar(SnackBar(content: Text("Lỗi kết nối: $e")));
+    } finally {
+      if (mounted) setState(() => isProcessing = false);
     }
   }
 
@@ -77,8 +116,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const Center(
                   child: Text(
                     "Ride App",
-                    style: TextStyle(
-                        fontSize: 28, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                   ),
                 ),
                 const Center(
@@ -112,7 +150,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     labelText: "Email",
                     prefixIcon: const Icon(Icons.email_outlined),
                     border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) {
@@ -130,14 +169,15 @@ class _LoginScreenState extends State<LoginScreen> {
                     labelText: "Mật khẩu",
                     prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
-                      icon: Icon(obscurePass
-                          ? Icons.visibility_off
-                          : Icons.visibility),
+                      icon: Icon(
+                        obscurePass ? Icons.visibility_off : Icons.visibility,
+                      ),
                       onPressed: () =>
                           setState(() => obscurePass = !obscurePass),
                     ),
                     border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                   validator: (v) {
                     if (v == null || v.isEmpty) return "Vui lòng nhập mật khẩu";
@@ -154,16 +194,25 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 8),
                 ElevatedButton(
-                  onPressed: _doLogin,
+                  onPressed: isProcessing ? null : _doLogin,
                   style: ElevatedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 52),
                     backgroundColor: Colors.deepPurple,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
-                  child: const Text("Đăng nhập",
-                      style: TextStyle(fontSize: 16)),
+                  child: isProcessing
+                      ? const SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text("Đăng nhập", style: TextStyle(fontSize: 16)),
                 ),
                 const SizedBox(height: 16),
                 Row(
@@ -175,8 +224,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) =>
-                                RegisterScreen(initialRole: role),
+                            builder: (_) => RegisterScreen(initialRole: role),
                           ),
                         );
                       },
@@ -207,15 +255,18 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon,
-                  size: 18,
-                  color: selected ? Colors.white : Colors.black54),
+              Icon(
+                icon,
+                size: 18,
+                color: selected ? Colors.white : Colors.black54,
+              ),
               const SizedBox(width: 6),
               Text(
                 label,
                 style: TextStyle(
-                    color: selected ? Colors.white : Colors.black54,
-                    fontWeight: FontWeight.w600),
+                  color: selected ? Colors.white : Colors.black54,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),

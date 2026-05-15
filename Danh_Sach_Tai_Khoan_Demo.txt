@@ -1,0 +1,42 @@
+=== TÀI KHOẢN ĐĂNG NHẬP DEMO ===
+Mật khẩu chung cho TẤT CẢ tài khoản (Khách & Tài xế): 123456
+
+--------------------------------------------------
+👤 TÀI KHOẢN KHÁCH HÀNG
+--------------------------------------------------
+[Khu vực HCM]
+1. khachhang22_hcm@gmail.com   (Phan Thị Hải)
+2. khachhang13_hcm@gmail.com   (Vũ Gia Hải)
+3. khachhang50_hcm@gmail.com   (Võ Minh Dũng)
+
+[Khu vực Hà Nội]
+1. khachhang43_hn@gmail.com    (Đỗ Ngọc Tâm)
+2. khachhang10_hn@gmail.com    (Phan Phương Dũng)
+3. khachhang11_hn@gmail.com    (Hoàng Minh Phong)
+
+
+--------------------------------------------------
+🚕 TÀI KHOẢN TÀI XẾ
+--------------------------------------------------
+[Khu vực HCM]
+1. taixe8_hcm@gmail.com        (Lý Phương Hải)
+2. taixe7_hcm@gmail.com        (Nguyễn Ngọc Giang)
+3. taixe1_hcm@gmail.com        (Đặng Phương Vinh)
+
+[Khu vực Hà Nội]
+1. taixe6_hn@gmail.com         (Nguyễn Quốc Mai)
+2. taixe12_hn@gmail.com        (Phan Quốc Bảo)
+3. taixe4_hn@gmail.com         (Võ Hữu Dũng)
+
+
+=== CÁCH CHẠY ===
+1. Bật Docker: 
+   docker-compose up -d
+
+2. Bật các Backend API: 
+   Mở terminal ở thư mục /backend và chạy lệnh:
+   node start_all.js
+
+3. Chạy App: 
+   Mở terminal ở thư mục /ride_app:
+   flutter run

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:latlong2/latlong.dart';
 import '../services/active_trip_store.dart';
+import '../services/api_service.dart';
 import 'passenger_trip_screen.dart';
 
 class PaymentMethod {
@@ -15,21 +16,25 @@ class PaymentMethod {
 class PaymentScreen extends StatefulWidget {
   final int tongTien;
   final String tenLoaiXe;
+  final String maLoaiDichVu;
   final double khoangCachKm;
   final String? diaChiDon;
   final String? diaChiDen;
   final LatLng? diemDon;
   final LatLng? diemDen;
+  final String thanhPho;
 
   const PaymentScreen({
     super.key,
     required this.tongTien,
     required this.tenLoaiXe,
+    required this.maLoaiDichVu,
     this.khoangCachKm = 5.0,
     this.diaChiDon,
     this.diaChiDen,
     this.diemDon,
     this.diemDen,
+    this.thanhPho = "HCM",
   });
 
   @override
@@ -38,12 +43,27 @@ class PaymentScreen extends StatefulWidget {
 
 class _PaymentScreenState extends State<PaymentScreen> {
   final methods = [
-    PaymentMethod("tien_mat", "Tiền mặt", Icons.payments, Colors.green,
-        "Thanh toán khi kết thúc chuyến"),
-    PaymentMethod("vi_dien_tu", "Ví điện tử", Icons.account_balance_wallet,
-        Colors.orange, "Momo / ZaloPay / VNPay"),
-    PaymentMethod("the_ngan_hang", "Thẻ ngân hàng", Icons.credit_card,
-        Colors.blue, "Visa / MasterCard / ATM nội địa"),
+    PaymentMethod(
+      "tien_mat",
+      "Tiền mặt",
+      Icons.payments,
+      Colors.green,
+      "Thanh toán khi kết thúc chuyến",
+    ),
+    PaymentMethod(
+      "vi_dien_tu",
+      "Ví điện tử",
+      Icons.account_balance_wallet,
+      Colors.orange,
+      "Momo / ZaloPay / VNPay",
+    ),
+    PaymentMethod(
+      "the_ngan_hang",
+      "Thẻ ngân hàng",
+      Icons.credit_card,
+      Colors.blue,
+      "Visa / MasterCard / ATM nội địa",
+    ),
   ];
 
   int selected = 0;
@@ -59,22 +79,28 @@ class _PaymentScreenState extends State<PaymentScreen> {
     return "${buf.toString()}₫";
   }
 
-  /// Khởi tạo trip giả lập sau khi thanh toán thành công
-  PassengerTripInfo _createTrip() {
+  /// Khởi tạo thông tin chuyến hiển thị sau khi DB tạo chuyến thành công.
+  String _cityLabel(String city) {
+    return city == "HN" ? "Hà Nội" : "TP.HCM";
+  }
+
+  PassengerTripInfo _createTrip(Map<String, dynamic>? dbTrip) {
     final maChuyen =
-        "${DateTime.now().millisecondsSinceEpoch % 1000000}";
+        (dbTrip?["id"] ??
+                dbTrip?["ma_chuyen_di"] ??
+                "${DateTime.now().millisecondsSinceEpoch % 1000000}")
+            .toString();
     return PassengerTripInfo(
       maChuyenDi: maChuyen,
-      tenTaiXe: "Nguyễn Văn A",
-      sdtTaiXe: "0901 234 567",
-      diemDanhGiaTaiXe: 4.9,
-      bienSo: widget.tenLoaiXe.toLowerCase().contains("máy")
-          ? "59X1-234.56"
-          : "51A-678.90",
-      hangXe: widget.tenLoaiXe.toLowerCase().contains("máy")
-          ? "Honda Wave"
-          : "Toyota Vios",
-      mauXe: "Đen",
+      thanhPho: widget.thanhPho,
+      trangThai: (dbTrip?["trang_thai"] ?? "cho_xu_ly").toString(),
+      hasDriver: false,
+      tenTaiXe: "Đang tìm tài xế",
+      sdtTaiXe: "",
+      diemDanhGiaTaiXe: 0,
+      bienSo: "",
+      hangXe: "",
+      mauXe: "",
       loaiXe: widget.tenLoaiXe,
       diaChiDon: widget.diaChiDon ?? "Vị trí đón hiện tại",
       diaChiDen: widget.diaChiDen ?? "Điểm đến đã chọn",
@@ -83,74 +109,116 @@ class _PaymentScreenState extends State<PaymentScreen> {
       khoangCachKm: widget.khoangCachKm,
       tongTien: widget.tongTien,
       phuongThucThanhToan: methods[selected].ten,
-      etaPhut: 5,
+      etaPhut: 0,
     );
   }
 
   Future<void> _confirmPayment() async {
     setState(() => isProcessing = true);
-    await Future.delayed(const Duration(milliseconds: 1200));
-    if (!mounted) return;
-    setState(() => isProcessing = false);
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18)),
-        title: Row(
-          children: const [
-            Icon(Icons.check_circle, color: Colors.green, size: 28),
-            SizedBox(width: 8),
-            Text("Thanh toán thành công"),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-                "Bạn đã thanh toán ${_formatVND(widget.tongTien)} bằng ${methods[selected].ten}."),
-            const SizedBox(height: 6),
-            Text(
-              "Mã giao dịch: #TX${DateTime.now().millisecondsSinceEpoch}",
-              style: const TextStyle(
-                  fontSize: 12, color: Colors.black54),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              "Hệ thống đang tìm tài xế cho bạn…",
-              style: TextStyle(
-                  fontSize: 13, fontStyle: FontStyle.italic),
-            ),
-          ],
-        ),
-        actions: [
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.deepPurple,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () {
-              Navigator.pop(context); // đóng dialog
+    try {
+      final city = widget.thanhPho;
+      final paymentStatus = methods[selected].id == "tien_mat"
+          ? "cho_thanh_toan"
+          : "da_thanh_toan";
+      final res = await ApiService.post('trips', city, {
+        "ma_loai_dich_vu": widget.maLoaiDichVu,
+        "thanh_pho": city,
+        "vi_do_diem_don": widget.diemDon?.latitude ?? 10.0,
+        "kinh_do_diem_don": widget.diemDon?.longitude ?? 106.0,
+        "vi_do_diem_den": widget.diemDen?.latitude ?? 10.0,
+        "kinh_do_diem_den": widget.diemDen?.longitude ?? 106.0,
+        "dia_chi_diem_don": widget.diaChiDon ?? "Vị trí đón hiện tại",
+        "dia_chi_diem_den": widget.diaChiDen ?? "Điểm đến đã chọn",
+        "khoang_cach_km": widget.khoangCachKm,
+        "so_tien": widget.tongTien,
+        "phuong_thuc": methods[selected].id,
+        "trang_thai_thanh_toan": paymentStatus,
+      });
 
-              // Lưu chuyến vào store và mở màn thông tin tài xế
-              final trip = _createTrip();
-              ActiveTripStore.startTrip(trip);
+      if (!mounted) return;
+      setState(() => isProcessing = false);
 
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => const PassengerTripScreen()),
-                (r) => false,
-              );
-            },
-            child: const Text("Xem tài xế"),
+      final responseData = res["data"];
+      if (responseData != null && responseData["success"] == true) {
+        final isCash = methods[selected].id == "tien_mat";
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+            title: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.green, size: 28),
+                const SizedBox(width: 8),
+                Text(
+                  isCash ? "Đặt chuyến thành công" : "Thanh toán thành công",
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isCash
+                      ? "Chuyến đi đã được tạo. Bạn sẽ thanh toán ${_formatVND(widget.tongTien)} bằng tiền mặt khi kết thúc chuyến."
+                      : "Bạn đã thanh toán ${_formatVND(widget.tongTien)} bằng ${methods[selected].ten}.",
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  "Mã chuyến: #${responseData["data"]?["id"] ?? DateTime.now().millisecondsSinceEpoch}",
+                  style: const TextStyle(fontSize: 12, color: Colors.black54),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  "Hệ thống đang tìm tài xế thật trong khu vực đã chọn...",
+                  style: TextStyle(fontSize: 13, fontStyle: FontStyle.italic),
+                ),
+              ],
+            ),
+            actions: [
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.deepPurple,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () {
+                  Navigator.pop(context); // đóng dialog
+
+                  // Lưu chuyến vào store và mở màn theo dõi tìm tài xế.
+                  final trip = _createTrip(responseData["data"]);
+                  ActiveTripStore.startTrip(trip);
+
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const PassengerTripScreen(),
+                    ),
+                    (r) => false,
+                  );
+                },
+                child: const Text("Theo dõi chuyến"),
+              ),
+            ],
           ),
-        ],
-      ),
-    );
+        );
+      } else {
+        final message = responseData?["read_only"] == true
+            ? "Server chính đang bảo trì: chỉ xem dữ liệu, không thể đặt chuyến lúc primary sập."
+            : responseData?["message"] ?? "Lỗi tạo chuyến";
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
+      }
+    } catch (e) {
+      if (mounted) setState(() => isProcessing = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Lỗi mạng: $e")));
+    }
   }
 
   @override
@@ -169,10 +237,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [
-                  Colors.deepPurple,
-                  Colors.deepPurple.shade400,
-                ],
+                colors: [Colors.deepPurple, Colors.deepPurple.shade400],
               ),
               borderRadius: BorderRadius.circular(16),
             ),
@@ -187,18 +252,37 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 Text(
                   _formatVND(widget.tongTien),
                   style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold),
+                    color: Colors.white,
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    const Icon(Icons.directions_car,
-                        color: Colors.white70, size: 18),
+                    const Icon(
+                      Icons.directions_car,
+                      color: Colors.white70,
+                      size: 18,
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       widget.tenLoaiXe,
+                      style: const TextStyle(color: Colors.white70),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.location_city,
+                      color: Colors.white70,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      "Khu vực đặt xe: ${_cityLabel(widget.thanhPho)}",
                       style: const TextStyle(color: Colors.white70),
                     ),
                   ],
@@ -214,8 +298,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
               alignment: Alignment.centerLeft,
               child: const Text(
                 "Chọn phương thức thanh toán",
-                style:
-                    TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
             ),
           ),
@@ -234,10 +317,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     margin: const EdgeInsets.only(bottom: 10),
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: isSel ? m.color.withValues(alpha: 0.1) : Colors.white,
+                      color: isSel
+                          ? m.color.withValues(alpha: 0.1)
+                          : Colors.white,
                       border: Border.all(
-                          color: isSel ? m.color : Colors.grey.shade300,
-                          width: isSel ? 2 : 1),
+                        color: isSel ? m.color : Colors.grey.shade300,
+                        width: isSel ? 2 : 1,
+                      ),
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Row(
@@ -259,15 +345,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
                               Text(
                                 m.ten,
                                 style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600),
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                               const SizedBox(height: 2),
                               Text(
                                 m.moTa,
                                 style: const TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.black54),
+                                  fontSize: 13,
+                                  color: Colors.black54,
+                                ),
                               ),
                             ],
                           ),
@@ -276,8 +364,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           value: i,
                           groupValue: selected,
                           activeColor: m.color,
-                          onChanged: (v) =>
-                              setState(() => selected = v ?? 0),
+                          onChanged: (v) => setState(() => selected = v ?? 0),
                         ),
                       ],
                     ),
@@ -294,9 +381,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 6,
-                    offset: const Offset(0, -2)),
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 6,
+                  offset: const Offset(0, -2),
+                ),
               ],
             ),
             child: ElevatedButton(
@@ -306,21 +394,24 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 backgroundColor: Colors.deepPurple,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
               child: isProcessing
                   ? const SizedBox(
                       width: 22,
                       height: 22,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : Text(
                       "Xác nhận thanh toán (${_formatVND(widget.tongTien)})",
                       style: const TextStyle(fontSize: 15),
                     ),
             ),
-          )
+          ),
         ],
       ),
     );

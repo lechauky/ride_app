@@ -1,27 +1,149 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/location_service.dart';
 import '../services/active_trip_store.dart';
+import '../services/auth_store.dart';
 import 'booking_screen.dart';
 import 'history_screen.dart';
-import 'ride_types_screen.dart';
-import 'payment_screen.dart';
 import 'rating_screen.dart';
 import 'notifications_screen.dart';
 import 'login_screen.dart';
 import 'passenger_trip_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final bool autoLoadBookingLocation;
+  final bool enableTripPolling;
+
+  const HomeScreen({
+    super.key,
+    this.autoLoadBookingLocation = true,
+    this.enableTripPolling = true,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  String city = "HCM";
+  late String city;
+  Timer? _tripTimer;
+  bool _isRefreshingTrip = false;
+
+  @override
+  void initState() {
+    super.initState();
+    city = AuthStore.currentUser.value?.thanhPho ?? "HCM";
+    if (widget.enableTripPolling) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _refreshActiveTrip());
+      _tripTimer = Timer.periodic(
+        const Duration(seconds: 5),
+        (_) => _refreshActiveTrip(),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _tripTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refreshActiveTrip() async {
+    if (_isRefreshingTrip || ActiveTripStore.currentTrip.value == null) return;
+    _isRefreshingTrip = true;
+    try {
+      final updated = await ActiveTripStore.refreshCurrentTrip();
+      if (!mounted || updated == null) return;
+      if (ActiveTripStore.shouldPromptDriverRating(updated)) {
+        _showCompletedRatingPrompt(updated);
+      }
+    } finally {
+      _isRefreshingTrip = false;
+    }
+  }
+
+  String _bannerTitle(PassengerTripInfo trip) {
+    if (trip.trangThai == "hoan_thanh") return "Chuyến đã hoàn thành";
+    if (trip.trangThai == "cho_xu_ly") return "Đang tìm tài xế";
+    return "Đang trong chuyến";
+  }
+
+  String _bannerSubtitle(PassengerTripInfo trip) {
+    if (trip.trangThai == "hoan_thanh") {
+      return "Bấm để đánh giá tài xế ${trip.tenTaiXe}";
+    }
+    if (trip.hasDriver) return "Tài xế ${trip.tenTaiXe} • ${trip.bienSo}";
+    return "Đang tìm tài xế trong ${trip.thanhPho}";
+  }
+
+  IconData _bannerIcon(PassengerTripInfo trip) {
+    if (trip.trangThai == "hoan_thanh") return Icons.rate_review;
+    if (trip.trangThai == "cho_xu_ly") return Icons.search;
+    return Icons.directions_car;
+  }
+
+  void _openDriverRating(PassengerTripInfo trip) {
+    ActiveTripStore.endTrip();
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (_) => RatingScreen(
+          target: RatingTarget.driver,
+          tripId: trip.maChuyenDi,
+          thanhPho: trip.thanhPho,
+          targetName: trip.tenTaiXe,
+          targetSubInfo: "${trip.hangXe} • ${trip.bienSo}",
+        ),
+      ),
+      (r) => false,
+    );
+  }
+
+  void _showCompletedRatingPrompt(PassengerTripInfo trip) {
+    _tripTimer?.cancel();
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green, size: 26),
+            SizedBox(width: 8),
+            Text("Chuyến đã hoàn thành"),
+          ],
+        ),
+        content: Text(
+          "Tài xế ${trip.tenTaiXe} đã hoàn thành chuyến đi.\nBạn có thể đánh giá tài xế để lưu phản hồi vào hệ thống.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ActiveTripStore.endTrip();
+            },
+            child: const Text("Bỏ qua"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.deepPurple,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              Navigator.pop(context);
+              _openDriverRating(trip);
+            },
+            child: const Text("Đánh giá tài xế"),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final user = AuthStore.currentUser.value;
+    final tenHienThi = user?.hoTen ?? "Khách";
     return Scaffold(
       appBar: AppBar(
         title: const Text("Ride App"),
@@ -34,14 +156,15 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                    builder: (_) => const NotificationsScreen()),
+                MaterialPageRoute(builder: (_) => const NotificationsScreen()),
               );
             },
           ),
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () {
+            onPressed: () async {
+              await AuthStore.logout();
+              if (!context.mounted) return;
               Navigator.pushAndRemoveUntil(
                 context,
                 MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -60,33 +183,42 @@ class _HomeScreenState extends State<HomeScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [
-                  Colors.deepPurple,
-                  Colors.deepPurple.shade300,
-                ]),
+                gradient: LinearGradient(
+                  colors: [Colors.deepPurple, Colors.deepPurple.shade300],
+                ),
                 borderRadius: BorderRadius.circular(18),
               ),
               child: Row(
-                children: const [
-                  CircleAvatar(
+                children: [
+                  const CircleAvatar(
                     radius: 28,
                     backgroundColor: Colors.white,
-                    child: Icon(Icons.person,
-                        color: Colors.deepPurple, size: 30),
+                    child: Icon(
+                      Icons.person,
+                      color: Colors.deepPurple,
+                      size: 30,
+                    ),
                   ),
-                  SizedBox(width: 12),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("Xin chào,",
-                            style:
-                                TextStyle(color: Colors.white70, fontSize: 13)),
-                        Text("Bạn muốn đi đâu hôm nay?",
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 17,
-                                fontWeight: FontWeight.bold)),
+                        Text(
+                          "Xin chào, $tenHienThi",
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const Text(
+                          "Bạn muốn đi đâu hôm nay?",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -107,6 +239,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: InkWell(
                       borderRadius: BorderRadius.circular(16),
                       onTap: () {
+                        if (trip.trangThai == "hoan_thanh" &&
+                            ActiveTripStore.shouldPromptDriverRating(trip)) {
+                          _showCompletedRatingPrompt(trip);
+                          return;
+                        }
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -117,10 +254,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(colors: [
-                            Colors.green.shade600,
-                            Colors.green.shade400,
-                          ]),
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.green.shade600,
+                              Colors.green.shade400,
+                            ],
+                          ),
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
@@ -138,18 +277,20 @@ class _HomeScreenState extends State<HomeScreen> {
                                 color: Colors.white24,
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(Icons.directions_car,
-                                  color: Colors.white, size: 22),
+                              child: Icon(
+                                _bannerIcon(trip),
+                                color: Colors.white,
+                                size: 22,
+                              ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
-                                    "Bạn đang trong chuyến đi",
-                                    style: TextStyle(
+                                  Text(
+                                    _bannerTitle(trip),
+                                    style: const TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.bold,
                                       fontSize: 15,
@@ -157,7 +298,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    "Tài xế ${trip.tenTaiXe} • ${trip.bienSo}",
+                                    _bannerSubtitle(trip),
                                     style: const TextStyle(
                                       color: Colors.white70,
                                       fontSize: 12,
@@ -167,8 +308,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ],
                               ),
                             ),
-                            const Icon(Icons.arrow_forward_ios,
-                                color: Colors.white, size: 16),
+                            const Icon(
+                              Icons.arrow_forward_ios,
+                              color: Colors.white,
+                              size: 16,
+                            ),
                           ],
                         ),
                       ),
@@ -181,7 +325,8 @@ class _HomeScreenState extends State<HomeScreen> {
             // Card chọn thành phố
             Card(
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16)),
+                borderRadius: BorderRadius.circular(16),
+              ),
               elevation: 2,
               child: Padding(
                 padding: const EdgeInsets.all(12),
@@ -215,9 +360,10 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 20),
 
-            const Text("Dịch vụ",
-                style:
-                    TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            const Text(
+              "Dịch vụ",
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
             const SizedBox(height: 10),
 
             GridView.count(
@@ -236,7 +382,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (_) => const BookingScreen()),
+                        builder: (_) => BookingScreen(
+                          thanhPho: city,
+                          autoLoadLocation: widget.autoLoadBookingLocation,
+                        ),
+                      ),
                     );
                   },
                 ),
@@ -247,8 +397,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                          builder: (_) => const RatingScreen()),
+                      MaterialPageRoute(builder: (_) => const RatingScreen()),
                     );
                   },
                 ),
@@ -260,7 +409,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (_) => const NotificationsScreen()),
+                        builder: (_) => const NotificationsScreen(),
+                      ),
                     );
                   },
                 ),
@@ -271,8 +421,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                          builder: (_) => HistoryScreen()),
+                      MaterialPageRoute(builder: (_) => HistoryScreen()),
                     );
                   },
                 ),
@@ -284,11 +433,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _menu(
-      {required IconData icon,
-      required String label,
-      required Color color,
-      required VoidCallback onTap}) {
+  Widget _menu({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
@@ -299,9 +449,10 @@ class _HomeScreenState extends State<HomeScreen> {
           border: Border.all(color: Colors.grey.shade200),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 6,
-                offset: const Offset(0, 2)),
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
           ],
         ),
         padding: const EdgeInsets.all(12),
@@ -314,10 +465,11 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Icon(icon, color: color, size: 26),
             ),
             const SizedBox(height: 10),
-            Text(label,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w600)),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
           ],
         ),
       ),

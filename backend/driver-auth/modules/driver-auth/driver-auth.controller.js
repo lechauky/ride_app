@@ -1,4 +1,19 @@
+// ===========================================
+// CONTROLLER - Thành viên 2 (Đức Huy)
+// Nhiệm vụ: Nhận HTTP Request, gọi Service, trả Response
+// ===========================================
 const service = require('./driver-auth.service');
+const { mapReadOnlyResult } = require('../../../utils/readOnly');
+
+function sendError(res, error) {
+  const readOnly = mapReadOnlyResult(error);
+  if (readOnly) return res.status(readOnly.status).json(readOnly.body);
+
+  return res.status(400).json({
+    success: false,
+    message: error.message
+  });
+}
 
 // Cập nhật vị trí tài xế
 async function updateLocation(req, res) {
@@ -15,10 +30,7 @@ async function updateLocation(req, res) {
 
     return res.status(200).json(result);
   } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: error.message
-    });
+    return sendError(res, error);
   }
 }
 
@@ -38,10 +50,7 @@ async function findNearestDrivers(req, res) {
 
     return res.status(200).json(result);
   } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: error.message
-    });
+    return sendError(res, error);
   }
 }
 
@@ -54,57 +63,61 @@ async function getAvailableDrivers(req, res) {
 
     return res.status(200).json(result);
   } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: error.message
-    });
+    return sendError(res, error);
   }
 }
 
 // Cập nhật trạng thái khả dụng
 async function updateAvailability(req, res) {
   try {
-    const { is_available } = req.body;
+    const { is_available, thanh_pho } = req.body;
     const driverId = req.user.driver_id; // Từ JWT token (nếu có)
-
-    if (!driverId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Không tìm thấy ID tài xế trong token'
-      });
-    }
-
-    const result = await service.updateAvailability(driverId, is_available);
+    const city = thanh_pho || req.user.thanh_pho || 'HCM';
+    const result = driverId
+      ? await service.updateAvailability(driverId, is_available, city)
+      : await service.updateAvailabilityByUser(req.user.id, is_available, city);
 
     return res.status(200).json(result);
   } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: error.message
-    });
+    return sendError(res, error);
   }
 }
 
 // Lấy thông tin chi tiết tài xế
 async function getProfile(req, res) {
   try {
-    const driverId = req.user.driver_id || req.params.driverId;
+    const driverId = req.user?.driver_id || req.params.driverId;
 
-    if (!driverId) {
+    if (!driverId && !req.user?.id) {
       return res.status(400).json({
         success: false,
         message: 'Thiếu ID tài xế'
       });
     }
 
-    const result = await service.getProfile(driverId);
+    // Truyền thanh_pho từ JWT hoặc query để định tuyến đúng DB
+    const city = req.query.thanh_pho || req.user?.thanh_pho || 'HCM';
+    const result = driverId
+      ? await service.getProfile(driverId, city)
+      : await service.getProfileByUser(req.user.id, city);
 
     return res.status(200).json(result);
   } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: error.message
+    return sendError(res, error);
+  }
+}
+
+async function saveVehicle(req, res) {
+  try {
+    const city = req.body.thanh_pho || req.user.thanh_pho || 'HCM';
+    const result = await service.saveVehicle(req.user.id, {
+      ...req.body,
+      thanh_pho: city,
     });
+
+    return res.status(200).json(result);
+  } catch (error) {
+    return sendError(res, error);
   }
 }
 
@@ -113,5 +126,6 @@ module.exports = {
   findNearestDrivers,
   getAvailableDrivers,
   updateAvailability,
-  getProfile
+  getProfile,
+  saveVehicle
 };

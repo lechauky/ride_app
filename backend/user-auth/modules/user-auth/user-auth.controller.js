@@ -1,3 +1,7 @@
+// ===========================================
+// CONTROLLER - Thành viên 1 (Khánh)
+// Nhiệm vụ: Nhận HTTP Request, gọi Service, trả Response
+// ===========================================
 const service = require('./user-auth.service');
 
 async function register(req, res) {
@@ -20,7 +24,9 @@ async function login(req, res) {
 
 async function me(req, res) {
   try {
-    const result = await service.me(req.user.id);
+    // Lấy thanh_pho từ JWT token (đã được nhúng lúc login)
+    const thanh_pho = req.user.thanh_pho || 'HCM';
+    const result = await service.me(req.user.id, thanh_pho);
     return res.status(result.status).json(result.body);
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Lỗi lấy thông tin người dùng', error: error.message });

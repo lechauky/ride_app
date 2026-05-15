@@ -1,0 +1,247 @@
+const repository = require('./trips.repository');
+const {
+  validateCreateTripPayload,
+  validateHistoryParams,
+  validatePendingTripsParams,
+  validateTripDetailsParams,
+  validateRatingPayload,
+  validateTripActionPayload,
+} = require('./trips.validator');
+const { mapReadOnlyResult } = require('../../../utils/readOnly');
+
+function mapActionError(error) {
+  if (mapReadOnlyResult(error)) return 503;
+  if (error.code === 'DRIVER_NOT_FOUND') return 404;
+  if (error.code === 'TRIP_NOT_FOUND') return 404;
+  if (error.code === 'TRIP_NOT_AVAILABLE') return 409;
+  if (error.code === 'VEHICLE_TYPE_MISMATCH') return 409;
+  return 500;
+}
+
+async function createTrip(payload) {
+  const validation = validateCreateTripPayload(payload);
+  if (!validation.valid) {
+    return {
+      status: 400,
+      body: { success: false, message: validation.errors.join(', ') },
+    };
+  }
+
+  let trip;
+  try {
+    trip = await repository.createTrip(validation.normalized);
+  } catch (error) {
+    const readOnly = mapReadOnlyResult(error);
+    if (readOnly) return readOnly;
+    throw error;
+  }
+
+  return {
+    status: 201,
+    body: {
+      success: true,
+      message: 'Đặt chuyến thành công',
+      data: trip,
+    },
+  };
+}
+
+async function getTripHistoryByUserId(userId, query) {
+  const validation = validateHistoryParams(userId, query);
+  if (!validation.valid) {
+    return {
+      status: 400,
+      body: { success: false, message: validation.errors.join(', ') },
+    };
+  }
+
+  const history = await repository.getTripHistoryByUserId(validation.normalized);
+
+  return {
+    status: 200,
+    body: {
+      success: true,
+      message: `Lấy lịch sử chuyến đi thành công (${history.length} chuyến)`,
+      data: history,
+    },
+  };
+}
+
+async function getNearestPendingTrips(query, user) {
+  const validation = validatePendingTripsParams(query);
+  if (!validation.valid) {
+    return {
+      status: 400,
+      body: { success: false, message: validation.errors.join(', ') },
+    };
+  }
+
+  const trips = await repository.getNearestPendingTrips({
+    ...validation.normalized,
+    driverUserId: user?.id || null,
+  });
+
+  return {
+    status: 200,
+    body: {
+      success: true,
+      message: trips.length
+        ? `Tìm thấy ${trips.length} chuyến đang chờ`
+        : 'Không có chuyến đang chờ',
+      data: trips,
+    },
+  };
+}
+
+async function getTripDetails(tripId, query, user) {
+  const validation = validateTripDetailsParams(tripId, query, user);
+  if (!validation.valid) {
+    return {
+      status: 400,
+      body: { success: false, message: validation.errors.join(', ') },
+    };
+  }
+
+  const trip = await repository.getTripDetails(validation.normalized);
+  if (!trip) {
+    return {
+      status: 404,
+      body: { success: false, message: 'Không tìm thấy chuyến đi' },
+    };
+  }
+
+  return {
+    status: 200,
+    body: {
+      success: true,
+      message: 'Lấy chi tiết chuyến đi thành công',
+      data: trip,
+    },
+  };
+}
+
+async function acceptTrip(tripId, user, body) {
+  const validation = validateTripActionPayload(tripId, user, body);
+  if (!validation.valid) {
+    return {
+      status: 400,
+      body: { success: false, message: validation.errors.join(', ') },
+    };
+  }
+
+  try {
+    const result = await repository.acceptTrip(validation.normalized);
+    return {
+      status: 200,
+      body: {
+        success: true,
+        message: 'Nhận chuyến thành công',
+        data: result,
+      },
+    };
+  } catch (error) {
+    const readOnly = mapReadOnlyResult(error);
+    if (readOnly) return readOnly;
+    return {
+      status: mapActionError(error),
+      body: { success: false, message: error.message },
+    };
+  }
+}
+
+async function rejectTrip(tripId, user, body) {
+  const validation = validateTripActionPayload(tripId, user, body);
+  if (!validation.valid) {
+    return {
+      status: 400,
+      body: { success: false, message: validation.errors.join(', ') },
+    };
+  }
+
+  try {
+    const result = await repository.rejectTrip(validation.normalized);
+    return {
+      status: 200,
+      body: {
+        success: true,
+        message: 'Từ chối chuyến thành công',
+        data: result,
+      },
+    };
+  } catch (error) {
+    const readOnly = mapReadOnlyResult(error);
+    if (readOnly) return readOnly;
+    return {
+      status: mapActionError(error),
+      body: { success: false, message: error.message },
+    };
+  }
+}
+
+async function completeTrip(tripId, user, body) {
+  const validation = validateTripActionPayload(tripId, user, body);
+  if (!validation.valid) {
+    return {
+      status: 400,
+      body: { success: false, message: validation.errors.join(', ') },
+    };
+  }
+
+  try {
+    const result = await repository.completeTrip(validation.normalized);
+    return {
+      status: 200,
+      body: {
+        success: true,
+        message: 'Hoàn thành chuyến thành công',
+        data: result,
+      },
+    };
+  } catch (error) {
+    const readOnly = mapReadOnlyResult(error);
+    if (readOnly) return readOnly;
+    return {
+      status: mapActionError(error),
+      body: { success: false, message: error.message },
+    };
+  }
+}
+
+async function saveRating(tripId, user, body) {
+  const validation = validateRatingPayload(tripId, user, body);
+  if (!validation.valid) {
+    return {
+      status: 400,
+      body: { success: false, message: validation.errors.join(', ') },
+    };
+  }
+
+  let rating;
+  try {
+    rating = await repository.saveRating(validation.normalized);
+  } catch (error) {
+    const readOnly = mapReadOnlyResult(error);
+    if (readOnly) return readOnly;
+    throw error;
+  }
+
+  return {
+    status: 200,
+    body: {
+      success: true,
+      message: 'Lưu đánh giá thành công',
+      data: rating,
+    },
+  };
+}
+
+module.exports = {
+  createTrip,
+  getTripHistoryByUserId,
+  getNearestPendingTrips,
+  getTripDetails,
+  acceptTrip,
+  rejectTrip,
+  completeTrip,
+  saveRating,
+};
