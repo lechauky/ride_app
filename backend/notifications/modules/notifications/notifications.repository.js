@@ -1,4 +1,9 @@
-const { sql, getPrimaryConnection, getReplicaConnection } = require('../../../config/database');
+const {
+  sql,
+  getPrimaryConnection,
+  getWritablePrimaryConnection,
+  getReplicaConnection,
+} = require('../../../config/database');
 
 async function readPrimaryThenReplica(thanh_pho, runQuery) {
   try {
@@ -44,7 +49,7 @@ async function getNotifications({ userId, thanh_pho, limit, offset }) {
 }
 
 async function markRead({ notificationId, userId, thanh_pho }) {
-  const pool = await getPrimaryConnection(thanh_pho);
+  const pool = await getWritablePrimaryConnection(thanh_pho);
   const result = await pool.request()
     .input('id', sql.UniqueIdentifier, notificationId)
     .input('userId', sql.UniqueIdentifier, userId)
@@ -68,7 +73,7 @@ async function markRead({ notificationId, userId, thanh_pho }) {
 }
 
 async function markAllRead({ userId, thanh_pho }) {
-  const pool = await getPrimaryConnection(thanh_pho);
+  const pool = await getWritablePrimaryConnection(thanh_pho);
   const result = await pool.request()
     .input('userId', sql.UniqueIdentifier, userId)
     .query(`
@@ -83,7 +88,7 @@ async function markAllRead({ userId, thanh_pho }) {
 }
 
 async function softDelete({ notificationId, userId, thanh_pho }) {
-  const pool = await getPrimaryConnection(thanh_pho);
+  const pool = await getWritablePrimaryConnection(thanh_pho);
   const result = await pool.request()
     .input('id', sql.UniqueIdentifier, notificationId)
     .input('userId', sql.UniqueIdentifier, userId)

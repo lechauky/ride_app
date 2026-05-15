@@ -1,6 +1,7 @@
 const {
   sql,
   getPrimaryConnection,
+  getWritablePrimaryConnection,
   getReplicaConnection,
   assertWritableConnection,
 } = require('../../../config/database');
@@ -93,8 +94,9 @@ async function ensureTripUserInCity({
   userId,
   targetCity,
   sourceCity,
-}, deps = { getPrimaryConnection }) {
-  const targetPool = await deps.getPrimaryConnection(targetCity);
+}, deps = { getPrimaryConnection, getWritablePrimaryConnection }) {
+  const openWritable = deps.getWritablePrimaryConnection || deps.getPrimaryConnection;
+  const targetPool = await openWritable(targetCity);
   assertWritableConnection(targetPool);
   const existing = await targetPool.request()
     .input('id', sql.UniqueIdentifier, userId)
@@ -183,7 +185,7 @@ async function createTrip(payload) {
     sourceCity: payload.ma_nguoi_dung_thanh_pho,
   });
 
-  const pool = await getPrimaryConnection(payload.thanh_pho);
+  const pool = await getWritablePrimaryConnection(payload.thanh_pho);
   assertWritableConnection(pool);
   const transaction = new sql.Transaction(pool);
 
@@ -563,7 +565,7 @@ async function getDriverByUserId(transaction, driverUserId, thanh_pho) {
 }
 
 async function acceptTrip({ tripId, driverUserId, thanh_pho }) {
-  const pool = await getPrimaryConnection(thanh_pho);
+  const pool = await getWritablePrimaryConnection(thanh_pho);
   assertWritableConnection(pool);
   const transaction = new sql.Transaction(pool);
 
@@ -658,7 +660,7 @@ async function acceptTrip({ tripId, driverUserId, thanh_pho }) {
 }
 
 async function rejectTrip({ tripId, driverUserId, thanh_pho }) {
-  const pool = await getPrimaryConnection(thanh_pho);
+  const pool = await getWritablePrimaryConnection(thanh_pho);
   assertWritableConnection(pool);
   const transaction = new sql.Transaction(pool);
 
@@ -714,7 +716,7 @@ async function rejectTrip({ tripId, driverUserId, thanh_pho }) {
 }
 
 async function completeTrip({ tripId, driverUserId, thanh_pho }) {
-  const pool = await getPrimaryConnection(thanh_pho);
+  const pool = await getWritablePrimaryConnection(thanh_pho);
   assertWritableConnection(pool);
   const transaction = new sql.Transaction(pool);
 
@@ -789,7 +791,7 @@ async function saveRating({
   nhan_xet,
   thanh_pho,
 }) {
-  const pool = await getPrimaryConnection(thanh_pho);
+  const pool = await getWritablePrimaryConnection(thanh_pho);
   const result = await pool.request()
     .input('ma_chuyen_di', sql.UniqueIdentifier, tripId)
     .input('nguoi_danh_gia', sql.UniqueIdentifier, nguoi_danh_gia)

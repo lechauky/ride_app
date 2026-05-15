@@ -3,7 +3,11 @@
 // Nhiệm vụ: Tương tác trực tiếp với bảng users
 // SỬ DỤNG ĐÚNG logic Định tuyến của Thành viên 4
 // ===========================================
-const { getPrimaryConnection, getReplicaConnection } = require('../../../config/database');
+const {
+  getPrimaryConnection,
+  getWritablePrimaryConnection,
+  getReplicaConnection,
+} = require('../../../config/database');
 
 /**
  * Tìm user theo email (SELECT → dùng Replica để giảm tải)
@@ -33,7 +37,7 @@ async function findUserByEmailPrimary(email, thanh_pho = 'HCM') {
  * @param {object} userData - { ho_ten, email, mat_khau, so_dien_thoai, thanh_pho }
  */
 async function createUser({ ho_ten, email, mat_khau, so_dien_thoai, thanh_pho, vai_tro }) {
-  const pool = await getPrimaryConnection(thanh_pho || 'HCM');
+  const pool = await getWritablePrimaryConnection(thanh_pho || 'HCM');
   const result = await pool.request()
     .input('ho_ten', ho_ten)
     .input('email', email)

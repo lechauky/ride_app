@@ -166,6 +166,30 @@ async function getPrimaryConnection(thanhPho) {
   throw new Error('Thành phố không hợp lệ. Phải là HCM hoặc HN.');
 }
 
+async function getWritablePrimaryConnection(thanhPho) {
+  const city = normalizeCity(thanhPho);
+
+  try {
+    if (city === 'HCM') {
+      const pool = await getPool('NAM_PRIMARY', 'primary');
+      failoverState.HCM = { readOnly: false, lastFailureAt: 0 };
+      return pool;
+    }
+    if (city === 'HN') {
+      const pool = await getPool('BAC_PRIMARY', 'primary');
+      failoverState.HN = { readOnly: false, lastFailureAt: 0 };
+      return pool;
+    }
+  } catch (error) {
+    const entry = getFailoverEntry(city);
+    entry.readOnly = true;
+    entry.lastFailureAt = Date.now();
+    return await getReplicaConnection(city);
+  }
+
+  throw new Error('Thành phố không hợp lệ. Phải là HCM hoặc HN.');
+}
+
 /**
  * Trỏ tới CSDL Replica (Dùng riêng cho lệnh SELECT để giảm tải)
  * @param {string} thanhPho - 'HCM' hoặc 'HN'
@@ -189,6 +213,7 @@ async function getPoolFallback() {
 module.exports = {
   sql,
   getPrimaryConnection,
+  getWritablePrimaryConnection,
   getReplicaConnection,
   getPool: getPoolFallback,
   READ_ONLY_MESSAGE,

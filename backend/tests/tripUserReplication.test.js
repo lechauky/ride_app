@@ -22,6 +22,7 @@ function createDeps(initialUsers, options = {}) {
     HN: [...(initialUsers.HN || [])],
   };
   const inserts = [];
+  const calls = [];
 
   function makePool(city) {
     return {
@@ -74,8 +75,14 @@ function createDeps(initialUsers, options = {}) {
   return {
     stores,
     inserts,
+    calls,
     deps: {
       async getPrimaryConnection(city) {
+        calls.push({ type: 'primary', city });
+        return makePool(city);
+      },
+      async getWritablePrimaryConnection(city) {
+        calls.push({ type: 'writable', city });
         return makePool(city);
       },
     },
@@ -115,6 +122,22 @@ test('ensureTripUserInCity copy user sang DB đích trước khi tạo trip khá
   assert.equal(inserts[0].city, 'HN');
   assert.equal(stores.HN[0].id, USER_ID);
   assert.equal(stores.HN[0].thanh_pho, 'HN');
+});
+
+test('ensureTripUserInCity dÃ¹ng writable primary cho DB Ä‘Ã­ch', async () => {
+  const { inserts, calls, deps } = createDeps({
+    HCM: [createUser('HCM')],
+    HN: [],
+  });
+
+  await ensureTripUserInCity({
+    userId: USER_ID,
+    sourceCity: 'HCM',
+    targetCity: 'HN',
+  }, deps);
+
+  assert.equal(inserts.length, 1);
+  assert.deepEqual(calls[0], { type: 'writable', city: 'HN' });
 });
 
 test('ensureTripUserInCity trả lỗi read-only nếu DB đích không cho ghi', async () => {

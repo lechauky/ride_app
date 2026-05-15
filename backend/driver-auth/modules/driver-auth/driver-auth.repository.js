@@ -5,6 +5,7 @@
 // ===========================================
 const {
   getPrimaryConnection,
+  getWritablePrimaryConnection,
   getReplicaConnection,
   assertWritableConnection,
 } = require('../../../config/database');
@@ -33,7 +34,7 @@ function mapRideTypeToVehicleType(rideType) {
  * Cập nhật vị trí tài xế (UPDATE → Primary)
  */
 async function updateDriverLocation({ userId, latitude, longitude, thanh_pho }) {
-  const pool = await getPrimaryConnection(thanh_pho);
+  const pool = await getWritablePrimaryConnection(thanh_pho);
   assertWritableConnection(pool);
 
   try {
@@ -183,7 +184,7 @@ async function getAvailableDrivers(thanh_pho) {
  * Cập nhật trạng thái khả dụng của tài xế (UPDATE → Primary)
  */
 async function updateDriverAvailability(driverId, is_available, thanh_pho = 'HCM') {
-  const pool = await getPrimaryConnection(thanh_pho);
+  const pool = await getWritablePrimaryConnection(thanh_pho);
   assertWritableConnection(pool);
 
   try {
@@ -207,7 +208,7 @@ async function updateDriverAvailability(driverId, is_available, thanh_pho = 'HCM
 }
 
 async function updateDriverAvailabilityByUser(userId, is_available, thanh_pho = 'HCM') {
-  const pool = await getPrimaryConnection(thanh_pho);
+  const pool = await getWritablePrimaryConnection(thanh_pho);
   assertWritableConnection(pool);
 
   try {
@@ -295,7 +296,7 @@ async function upsertDriverVehicle({
   nam_san_xuat,
   dang_hoat_dong,
 }) {
-  const pool = await getPrimaryConnection(thanh_pho);
+  const pool = await getWritablePrimaryConnection(thanh_pho);
   assertWritableConnection(pool);
 
   try {
