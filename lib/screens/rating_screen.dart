@@ -37,8 +37,11 @@ class _RatingScreenState extends State<RatingScreen> {
   int rating = 0;
   final feedbackCtl = TextEditingController();
   final Set<String> selectedTags = {};
+  bool isSubmitting = false;
 
   bool get _isPassenger => widget.target == RatingTarget.passenger;
+  bool get _hasTripContext =>
+      widget.tripId != null && widget.tripId!.trim().isNotEmpty;
 
   String get _appBarTitle =>
       _isPassenger ? "Đánh giá khách hàng" : "Đánh giá tài xế";
@@ -124,7 +127,21 @@ class _RatingScreenState extends State<RatingScreen> {
       return;
     }
 
-    if (widget.tripId != null) {
+    if (!_hasTripContext) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _isPassenger
+                ? "Chỉ có thể đánh giá khách sau khi hoàn thành chuyến"
+                : "Chỉ có thể đánh giá tài xế sau khi chuyến hoàn thành",
+          ),
+        ),
+      );
+      return;
+    }
+
+    setState(() => isSubmitting = true);
+    try {
       final user = AuthStore.currentUser.value;
       final city = widget.thanhPho ?? user?.thanhPho ?? "HCM";
       final res = await ApiService.post("trips/${widget.tripId}/rating", city, {
@@ -144,6 +161,14 @@ class _RatingScreenState extends State<RatingScreen> {
         );
         return;
       }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Lỗi lưu đánh giá: $e")));
+      return;
+    } finally {
+      if (mounted) setState(() => isSubmitting = false);
     }
 
     showDialog(
@@ -229,6 +254,40 @@ class _RatingScreenState extends State<RatingScreen> {
               ),
             ),
             const SizedBox(height: 24),
+            if (!_hasTripContext) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: Colors.orange.shade800,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _isPassenger
+                            ? "Màn này chỉ lưu đánh giá khi mở từ chuyến đã hoàn thành."
+                            : "Hãy đánh giá tài xế từ chuyến đã hoàn thành để lưu vào hệ thống.",
+                        style: TextStyle(
+                          color: Colors.orange.shade900,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             Text(
               _ratingLabel(),
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
@@ -300,7 +359,7 @@ class _RatingScreenState extends State<RatingScreen> {
             const SizedBox(height: 16),
 
             ElevatedButton(
-              onPressed: _submitRating,
+              onPressed: isSubmitting ? null : _submitRating,
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 52),
                 backgroundColor: Colors.deepPurple,
@@ -309,7 +368,16 @@ class _RatingScreenState extends State<RatingScreen> {
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
-              child: const Text("Gửi đánh giá", style: TextStyle(fontSize: 16)),
+              child: isSubmitting
+                  ? const SizedBox(
+                      height: 22,
+                      width: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text("Gửi đánh giá", style: TextStyle(fontSize: 16)),
             ),
             const SizedBox(height: 8),
             TextButton(onPressed: _goHome, child: const Text("Bỏ qua")),

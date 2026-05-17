@@ -13,11 +13,13 @@ import 'passenger_trip_screen.dart';
 class HomeScreen extends StatefulWidget {
   final bool autoLoadBookingLocation;
   final bool enableTripPolling;
+  final bool enableRatingLookup;
 
   const HomeScreen({
     super.key,
     this.autoLoadBookingLocation = true,
     this.enableTripPolling = true,
+    this.enableRatingLookup = true,
   });
 
   @override
@@ -28,6 +30,7 @@ class _HomeScreenState extends State<HomeScreen> {
   late String city;
   Timer? _tripTimer;
   bool _isRefreshingTrip = false;
+  bool _isOpeningRating = false;
 
   @override
   void initState() {
@@ -97,6 +100,57 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       (r) => false,
     );
+  }
+
+  void _showRatingUnavailableMessage(PassengerTripInfo? trip) {
+    final message = trip == null
+        ? "Chưa tìm thấy chuyến đã hoàn thành để đánh giá tài xế"
+        : trip.trangThai == "hoan_thanh" && !trip.hasDriver
+        ? "Chuyến đã hoàn thành nhưng chưa có thông tin tài xế để đánh giá"
+        : "Chuyến hiện tại chưa hoàn thành nên chưa thể đánh giá tài xế";
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<PassengerTripInfo?> _resolveTripForRating() async {
+    var trip = ActiveTripStore.currentTrip.value;
+    if (trip != null) {
+      final refreshed = await ActiveTripStore.refreshCurrentTrip();
+      trip = refreshed ?? trip;
+      if (trip.trangThai == "hoan_thanh" && trip.hasDriver) return trip;
+      if (trip.trangThai == "hoan_thanh" && !trip.hasDriver) return trip;
+    }
+
+    if (!widget.enableRatingLookup) return trip;
+
+    final user = AuthStore.currentUser.value;
+    if (user == null) return trip;
+
+    return await ActiveTripStore.findLatestCompletedTripForRating(
+      userId: user.id,
+      cities: [city, user.thanhPho, "HCM", "HN"],
+    );
+  }
+
+  Future<void> _openRatingFromHome() async {
+    if (_isOpeningRating) return;
+    setState(() => _isOpeningRating = true);
+
+    PassengerTripInfo? trip;
+    try {
+      trip = await _resolveTripForRating();
+    } finally {
+      if (mounted) setState(() => _isOpeningRating = false);
+    }
+
+    if (!mounted) return;
+
+    if (trip != null && trip.trangThai == "hoan_thanh" && trip.hasDriver) {
+      _openDriverRating(trip);
+      return;
+    }
+    _showRatingUnavailableMessage(trip);
   }
 
   void _showCompletedRatingPrompt(PassengerTripInfo trip) {
@@ -239,9 +293,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: InkWell(
                       borderRadius: BorderRadius.circular(16),
                       onTap: () {
-                        if (trip.trangThai == "hoan_thanh" &&
-                            ActiveTripStore.shouldPromptDriverRating(trip)) {
-                          _showCompletedRatingPrompt(trip);
+                        if (trip.trangThai == "hoan_thanh") {
+                          if (trip.hasDriver) {
+                            _openDriverRating(trip);
+                          } else {
+                            _showRatingUnavailableMessage(trip);
+                          }
                           return;
                         }
                         Navigator.push(
@@ -395,10 +452,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   label: "Đánh giá",
                   color: Colors.amber,
                   onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const RatingScreen()),
-                    );
+                    _openRatingFromHome();
                   },
                 ),
                 _menu(

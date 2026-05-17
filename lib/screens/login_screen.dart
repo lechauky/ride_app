@@ -17,10 +17,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController passCtl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
-  // 0 = Người dùng, 1 = Tài xế
-  int role = 0;
   bool obscurePass = true;
-  String city = "HCM";
   bool isProcessing = false;
 
   @override
@@ -41,6 +38,7 @@ class _LoginScreenState extends State<LoginScreen> {
         "mat_khau": passCtl.text,
       });
 
+      if (!mounted) return;
       final data = res["data"];
       if (data["success"] == true) {
         final userData = data["data"];
@@ -56,11 +54,11 @@ class _LoginScreenState extends State<LoginScreen> {
           data["token"].toString(),
         );
 
+        if (!mounted) return;
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text("Đăng nhập thành công")));
 
-        if (!mounted) return;
         if (dbRole == 1) {
           Navigator.pushReplacement(
             context,
@@ -78,6 +76,7 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Lỗi kết nối: $e")));
@@ -126,22 +125,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 28),
-
-                // Toggle người dùng / tài xế
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  padding: const EdgeInsets.all(4),
-                  child: Row(
-                    children: [
-                      _roleTab("Người dùng", 0, Icons.person),
-                      _roleTab("Tài xế", 1, Icons.drive_eta),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
 
                 TextFormField(
                   controller: emailCtl,
@@ -224,7 +207,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => RegisterScreen(initialRole: role),
+                            builder: (_) => const RegisterScreen(),
                           ),
                         );
                       },
@@ -234,41 +217,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _roleTab(String label, int value, IconData icon) {
-    final selected = role == value;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => role = value),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: selected ? Colors.deepPurple : Colors.transparent,
-            borderRadius: BorderRadius.circular(28),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 18,
-                color: selected ? Colors.white : Colors.black54,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  color: selected ? Colors.white : Colors.black54,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
           ),
         ),
       ),

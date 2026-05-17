@@ -4,6 +4,7 @@ import 'package:ride_app/screens/active_trip_screen.dart';
 import 'package:ride_app/screens/booking_screen.dart';
 import 'package:ride_app/screens/driver_home_screen.dart';
 import 'package:ride_app/screens/home_screen.dart';
+import 'package:ride_app/screens/login_screen.dart';
 import 'package:ride_app/screens/payment_screen.dart';
 import 'package:ride_app/screens/rating_screen.dart';
 import 'package:ride_app/screens/ride_types_screen.dart';
@@ -247,6 +248,97 @@ void main() {
     expect(find.text('Bấm để đánh giá tài xế Tài xế Demo'), findsOneWidget);
   });
 
+  testWidgets('LoginScreen không còn chọn role khi đăng nhập', (tester) async {
+    await tester.pumpWidget(_app(const LoginScreen()));
+
+    expect(find.text('Người dùng'), findsNothing);
+    expect(find.text('Tài xế'), findsNothing);
+    expect(find.text('Đăng nhập'), findsOneWidget);
+  });
+
+  testWidgets(
+    'HomeScreen không mở đánh giá rỗng khi chưa có chuyến hoàn thành',
+    (tester) async {
+      AuthStore.currentUser.value = _user(city: 'HCM');
+      await tester.pumpWidget(
+        _app(
+          const HomeScreen(
+            autoLoadBookingLocation: false,
+            enableTripPolling: false,
+            enableRatingLookup: false,
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Đánh giá'));
+      await tester.pump();
+
+      expect(find.byType(RatingScreen), findsNothing);
+      expect(find.byType(SnackBar), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'HomeScreen mở đánh giá từ banner chuyến hoàn thành dù đã nhắc trước đó',
+    (tester) async {
+      AuthStore.currentUser.value = _user(city: 'HCM');
+      final completedTrip = PassengerTripInfo(
+        maChuyenDi: 'trip-1',
+        thanhPho: 'HCM',
+        trangThai: 'hoan_thanh',
+        hasDriver: true,
+        tenTaiXe: 'Tài xế Demo',
+        sdtTaiXe: '0900000000',
+        diemDanhGiaTaiXe: 4.8,
+        bienSo: '30A-77777',
+        hangXe: 'Ford',
+        mauXe: 'Đen',
+        loaiXe: 'Ô tô 7 chỗ',
+        diaChiDon: 'Điểm đón',
+        diaChiDen: 'Điểm đến',
+        diemDon: null,
+        diemDen: null,
+        khoangCachKm: 1,
+        tongTien: 10000,
+        phuongThucThanhToan: 'Tiền mặt',
+        etaPhut: 0,
+      );
+      ActiveTripStore.startTrip(completedTrip);
+      expect(ActiveTripStore.shouldPromptDriverRating(completedTrip), true);
+
+      await tester.pumpWidget(
+        _app(
+          const HomeScreen(
+            autoLoadBookingLocation: false,
+            enableTripPolling: false,
+          ),
+        ),
+      );
+
+      await tester.tap(find.byIcon(Icons.rate_review));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(RatingScreen), findsOneWidget);
+      final rating = tester.widget<RatingScreen>(find.byType(RatingScreen));
+      expect(rating.tripId, 'trip-1');
+      expect(rating.target, RatingTarget.driver);
+    },
+  );
+
+  testWidgets('RatingScreen không lưu giả khi thiếu tripId', (tester) async {
+    await tester.pumpWidget(_app(const RatingScreen()));
+
+    await tester.tap(find.byIcon(Icons.star_border).last);
+    await tester.pump();
+    await tester.ensureVisible(find.text('Gửi đánh giá'));
+    await tester.pump();
+    await tester.tap(find.text('Gửi đánh giá'));
+    await tester.pump();
+
+    expect(find.byType(SnackBar), findsOneWidget);
+    expect(find.text('Cảm ơn bạn!'), findsNothing);
+  });
+
   test('TripRequest parse khu vực và khoảng cách tới tài xế', () {
     final trip = TripRequest.fromJson({
       'ma_chuyen_di': 'trip-1',
@@ -267,6 +359,26 @@ void main() {
     expect(trip.diemDon.latitude, 21.028511);
     expect(trip.diemDon.longitude, 105.854165);
     expect(trip.khoangCachDenTaiXeKm, 1.23);
+  });
+
+  test('PassengerTripInfo tạo được từ lịch sử chuyến hoàn thành', () {
+    final trip = PassengerTripInfo.fromTripSummary({
+      'id': 'trip-history-1',
+      'thanh_pho': 'HN',
+      'trang_thai': 'hoan_thanh',
+      'ma_loai_dich_vu': 'car7',
+      'dia_chi_diem_don': 'Hồ Gươm',
+      'dia_chi_diem_den': 'Cầu Giấy',
+      'vi_do_diem_don': 21.0285,
+      'kinh_do_diem_don': 105.8542,
+      'khoang_cach_km': 6.2,
+    });
+
+    expect(trip.maChuyenDi, 'trip-history-1');
+    expect(trip.thanhPho, 'HN');
+    expect(trip.trangThai, 'hoan_thanh');
+    expect(trip.loaiXe, 'Ô tô 7 chỗ');
+    expect(trip.diemDon?.latitude, 21.0285);
   });
 
   testWidgets('RatingScreen không dùng tên tài xế hoặc khách mẫu cố định', (

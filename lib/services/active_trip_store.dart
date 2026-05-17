@@ -96,6 +96,40 @@ class PassengerTripInfo {
     );
   }
 
+  factory PassengerTripInfo.fromTripSummary(Map<String, dynamic> json) {
+    final city = _readString(json, "thanh_pho", "HCM");
+    return PassengerTripInfo(
+      maChuyenDi: _readString(
+        json,
+        "ma_chuyen_di",
+        _readString(json, "id", ""),
+      ),
+      thanhPho: city,
+      trangThai: _readString(json, "trang_thai", "cho_xu_ly"),
+      hasDriver: false,
+      tenTaiXe: "Tài xế chuyến đi",
+      sdtTaiXe: "",
+      diemDanhGiaTaiXe: 0,
+      bienSo: "",
+      hangXe: "",
+      mauXe: "",
+      loaiXe: _rideTypeLabel(
+        _readString(json, "ma_loai_dich_vu", ""),
+        _readString(json, "ten_loai_dich_vu", ""),
+      ),
+      diaChiDon: _readString(json, "dia_chi_diem_don", "Điểm đón"),
+      diaChiDen: _readString(json, "dia_chi_diem_den", "Điểm đến"),
+      diemDon: _latLngFromJson(json, "vi_do_diem_don", "kinh_do_diem_don"),
+      diemDen: _latLngFromJson(json, "vi_do_diem_den", "kinh_do_diem_den"),
+      khoangCachKm: _readDouble(json, "khoang_cach_km") ?? 1,
+      tongTien: _readInt(json, "so_tien") ?? 0,
+      phuongThucThanhToan: _paymentLabel(
+        _readString(json, "phuong_thuc", "tien_mat"),
+      ),
+      etaPhut: 0,
+    );
+  }
+
   PassengerTripInfo mergeDetail(Map<String, dynamic> json) {
     final driver = json["driver"];
     final driverMap = driver is Map ? Map<String, dynamic>.from(driver) : null;
@@ -191,6 +225,14 @@ class PassengerTripInfo {
     return id;
   }
 
+  static String _rideTypeLabel(String id, String label) {
+    if (label.isNotEmpty) return label;
+    if (id == 'car7') return 'Ô tô 7 chỗ';
+    if (id == 'car4') return 'Ô tô 4 chỗ';
+    if (id == 'bike') return 'Xe máy';
+    return id.isEmpty ? 'Chưa rõ loại xe' : id;
+  }
+
   static String _vehicleTypeLabel(String type) {
     if (type == 'xe_may') return 'Xe máy';
     if (type == 'o_to_4_cho') return 'Ô tô 4 chỗ';
@@ -245,5 +287,44 @@ class ActiveTripStore {
     final updated = trip.mergeDetail(Map<String, dynamic>.from(detail));
     updateTrip(updated);
     return updated;
+  }
+
+  static Future<PassengerTripInfo?> findLatestCompletedTripForRating({
+    required String userId,
+    required Iterable<String> cities,
+  }) async {
+    final uniqueCities = <String>{};
+    for (final city in cities) {
+      if (city == "HCM" || city == "HN") uniqueCities.add(city);
+    }
+
+    for (final city in uniqueCities) {
+      final query = Uri(
+        queryParameters: {"thanh_pho": city, "limit": "10"},
+      ).query;
+      final res = await ApiService.get("trips/history/$userId?$query", city);
+      final data = res["data"];
+      final rows = data is Map ? data["data"] : null;
+      if (data?["success"] != true || rows is! List) continue;
+
+      for (final row in rows) {
+        if (row is! Map) continue;
+        final summary = Map<String, dynamic>.from(row);
+        final trip = PassengerTripInfo.fromTripSummary(summary);
+        if (trip.trangThai != "hoan_thanh" || trip.maChuyenDi.isEmpty) {
+          continue;
+        }
+
+        currentTrip.value = trip;
+        final detail = await refreshCurrentTrip();
+        if (detail != null &&
+            detail.trangThai == "hoan_thanh" &&
+            detail.hasDriver) {
+          return detail;
+        }
+      }
+    }
+
+    return null;
   }
 }
